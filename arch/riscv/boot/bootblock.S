@@ -28,16 +28,28 @@ main:
     li a5, 0                 # IGNORE
     li a6, 0                 # IGNORE
     li a7, BIOS_PUTSTR       # 功能号
-    li t0, bios_func_entry
+    la t0, bios_func_entry
     jalr t0
 
 	// TODO: [p1-task2] call BIOS to read kernel in SD card
-
+	la a0, kernel            # 目标内存地址
+	la t1, os_size_loc
+	lh a1, 0(t1)             # 读取OS大小
+	li a2, 1                 # 起始块号
+	li a3, 0                 # IGNORE
+	li a4, 0                 # IGNORE
+	li a5, 0                 # IGNORE
+	li a6, 0                 # IGNORE
+	li a7, BIOS_SDREAD       # 功能号
+	la t0, bios_func_entry
+	jalr t0
 
 	// TODO: [p1-task4] load task-related arguments and pass them to kernel
 
 
 	// TODO: [p1-task2] jump to kernel to start UCAS-OS
+	la t0, kernel
+	jalr t0
 
 	/************************************************************/
 	/* Do not touch this comment. Reserved for future projects. */
@@ -47,7 +59,4 @@ stop:
 	j stop
 	nop
 
-.data
-
-msg: .string "It's a bootloader...\n\r"
 
