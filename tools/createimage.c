@@ -95,6 +95,9 @@ static void create_image(int nfiles, char *files[])
 
         int taskidx = fidx - 2;
 
+        /* 记录本文件开始写入时的物理偏移 */
+        int file_start = phyaddr;
+
         /* open input file */
         fp = fopen(*files, "r");
         assert(fp != NULL);
@@ -121,14 +124,21 @@ static void create_image(int nfiles, char *files[])
         }
 
         /* write padding bytes */
-        /**
-         * TODO:
-         * 1. [p1-task3] do padding so that the kernel and every app program
-         *  occupies the same number of sectors
-         * 2. [p1-task4] only padding bootblock is allowed!
-         */
         if (strcmp(*files, "bootblock") == 0) {
-            write_padding(img, &phyaddr, SECTOR_SIZE);
+            write_padding(img, &phyaddr, file_start + SECTOR_SIZE);
+        } else {
+            int fixed_sectors = 15;
+
+            int written_bytes   = phyaddr - file_start;
+            int written_sectors = NBYTES2SEC(written_bytes);
+            int padding_sectors = fixed_sectors - written_sectors;
+
+            if (padding_sectors > 0) {
+                int new_phyaddr = phyaddr + padding_sectors * SECTOR_SIZE;
+                write_padding(img, &phyaddr, new_phyaddr);
+            }
+            // 若是 p1-task4，请直接不填充：
+            // (void)fixed_sectors; (void)written_sectors; (void)padding_sectors;
         }
 
         fclose(fp);
@@ -215,6 +225,12 @@ static void write_img_info(int nbytes_kernel, task_info_t *taskinfo,
 {
     // TODO: [p1-task3] & [p1-task4] write image info to some certain places
     // NOTE: os size, infomation about app-info sector(s) ...
+
+    short kernel_sectors = NBYTES2SEC(nbytes_kernel);
+
+    fseek(img, OS_SIZE_LOC, SEEK_SET);
+    fwrite(&kernel_sectors, sizeof(short), 1, img);
+    fwrite(&tasknum, sizeof(short), 1, img);
 }
 
 /* print an error message and exit */

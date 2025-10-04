@@ -82,10 +82,36 @@ int main(void)
     // Infinite while loop, where CPU stays in a low-power state (QAQQQQQQQQQQQ)
     while (1)
     {   
-        int ch = bios_getchar();
-        if (ch != -1) {
-            bios_putchar(ch);
+        bios_putstr("\n\rEnter task id: "); 
+
+        int task_id = -1; 
+        while (1) {
+            int ch = bios_getchar();
+            if (ch != -1) {
+                if (ch == '\r' || ch == '\n') {
+                    break;
+                }
+
+                if (ch >= '0' && ch <= '9') {
+                    bios_putchar(ch); 
+                    if (task_id == -1) {
+                        task_id = 0; 
+                    }
+                    task_id = task_id * 10 + (ch - '0'); 
+                } else {
+                    bios_putstr("\n\rInvalid input! Please enter a number.");
+                    task_id = -1; 
+                    break; 
+                }
+            }
         }
+
+        if (task_id >= 0 && task_id < TASK_MAXNUM) {
+            load_task_img(task_id);
+        } else {
+            bios_putstr("\n\rInvalid task id! Please try again.\n\r");
+        }
+
         // asm volatile("wfi");
     }
 
