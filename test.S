@@ -13,8 +13,8 @@ main_loop:
     mv a0, s1               
     jal ra, is_prime         
     
-    slli t0, s1, 2           
-    add t0, s0, t0         
+    slli t0, s1, 2   # int        
+    add t0, s0, t0   # &array[i]      
     sw a0, 0(t0)           
     
     addi s1, s1, 1
@@ -32,7 +32,7 @@ is_prime:
     sw s1, 4(sp)
     sw s2, 0(sp)
     
-    mv s0, a0                 
+    mv s0, a0   # s0 = p               
     
     li a0, 0                 
     
@@ -42,18 +42,18 @@ is_prime:
     li t0, 2
     beq s0, t0, is_prime_true
 
-    andi t0, s0, 1           
+    andi t0, s0, 1   #  p % 2 ?= 0      
     beqz t0, is_prime_end    
     
     li s1, 3                 
     
-    mv s2, s0               
+    mv s2, s0              
     
 is_prime_loop:
-    mul t0, s1, s1           
+    mul t0, s1, s1    # \sqrt(p)       
     bgt t0, s0, is_prime_true 
     
-    rem t1, s0, s1            
+    rem t1, s0, s1    # s0 % s1        
     beqz t1, is_prime_end   
     
     addi s1, s1, 2          
