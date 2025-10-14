@@ -99,16 +99,6 @@ static void init_task_info(void)
     memcpy((uint8_t *)&tasknum,      bootsec + TASKNUM_LOC, sizeof(short));
 
     char num_str[16];
-    // bios_putstr("os_size: ");
-    // int_to_str(os_size, num_str);
-    // bios_putstr(num_str);
-    // bios_putstr("\n\rappinfo_size: ");
-    // int_to_str(appinfo_size, num_str);
-    // bios_putstr(num_str);
-    // bios_putstr("\n\rtasknum: ");
-    // int_to_str(tasknum, num_str);
-    // bios_putstr(num_str);
-    // bios_putstr("\n\r");
 
     int appinfo_off = SECTOR_SIZE + os_size;
     int max_bytes   = TASK_MAXNUM * (int)sizeof(task_info_t);
@@ -208,39 +198,10 @@ static void batch_write(void)
     unsigned blk = (unsigned)(batch_off / SECTOR_SIZE);
     unsigned cnt = (unsigned)(BATCH_AREA_SIZE / SECTOR_SIZE);
 
-    // bios_putstr("batch_off: ");
-    // int_to_str(batch_off, buf);
-    // bios_putstr(buf);
-    // bios_putstr("\n\r");
-
-    // bios_putstr("BATCH_AREA_SIZE: ");
-    // int_to_str(BATCH_AREA_SIZE, buf);
-    // bios_putstr(buf);
-    // bios_putstr("\n\r");
-
     if (sd_write((unsigned)(uintptr_t)out, cnt, blk) < 0) {
         bios_putstr("batch-write: sd_write failed\n\r");
         return;
     }
-
-    // bios_putstr("sd_write: mem_address=");
-    // int_to_str((unsigned)(uintptr_t)out, buf);
-    // bios_putstr(buf);
-    // bios_putstr(", cnt=");
-    // int_to_str(cnt, buf);
-    // bios_putstr(buf);
-    // bios_putstr(", blk=");
-    // int_to_str(blk, buf);
-    // bios_putstr(buf);
-    // bios_putstr("\n\r");
-
-    // int ret = sd_write((unsigned)(uintptr_t)out, cnt, blk);
-    // if (ret < 0) {
-    //     bios_putstr("sd_write failed with code ");
-    //     int_to_str(ret, buf);
-    //     bios_putstr(buf);
-    //     bios_putstr("\n\r");
-    // }
 
     bios_putstr("batch written\n\r");
 }
