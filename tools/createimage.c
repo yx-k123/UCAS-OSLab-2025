@@ -16,6 +16,8 @@
 #define TASKNUM_LOC (BOOT_LOADER_SIG_OFFSET - 8)       // 0x1f6..0x1f7
 #define BOOT_LOADER_SIG_1 0x55
 #define BOOT_LOADER_SIG_2 0xaa
+#define BATCH_OFFSET_LOC 0x1f0                         // 0x1f0..0x1f4
+#define BATCH_SIZE 512
 
 #define NBYTES2SEC(nbytes) (((nbytes) / SECTOR_SIZE) + ((nbytes) % SECTOR_SIZE != 0))
 
@@ -46,7 +48,7 @@ static uint32_t get_memsz(Elf64_Phdr phdr);
 static void write_segment(Elf64_Phdr phdr, FILE *fp, FILE *img, int *phyaddr);
 static void write_padding(FILE *img, int *phyaddr, int new_phyaddr);
 static void write_img_info(int nbytes_kernel, task_info_t *taskinfo,
-                           short tasknum, FILE *img);
+                           short tasknum, FILE *img, int batch_offset);
 
 int main(int argc, char **argv)
 {
@@ -155,10 +157,16 @@ static void create_image(int nfiles, char *files[])
         fclose(fp);
         files++;
     }
-    write_img_info(nbytes_kernel, taskinfo, tasknum, img);
     /* padding for left space */
     fseek(img, phyaddr, SEEK_SET);
     write_padding(img, &phyaddr, NBYTES2SEC(phyaddr) * SECTOR_SIZE);
+
+    /* padding for batch */
+    int batch_offset = phyaddr;
+    fseek(img, phyaddr, SEEK_SET);
+    write_padding(img, &phyaddr, phyaddr + BATCH_SIZE);
+
+    write_img_info(nbytes_kernel, taskinfo, tasknum, img, batch_offset);
 
     fclose(img);
 }
@@ -235,7 +243,7 @@ static void write_padding(FILE *img, int *phyaddr, int new_phyaddr)
 }
 
 static void write_img_info(int nbytes_kernel, task_info_t *taskinfo,
-                           short tasknum, FILE * img)
+                           short tasknum, FILE * img, int batch_offset)
 {
     uint16_t kernel_bytes = (uint16_t)nbytes_kernel;
     uint16_t tnum = (uint16_t)tasknum;
@@ -260,6 +268,11 @@ static void write_img_info(int nbytes_kernel, task_info_t *taskinfo,
     fseek(img, appinfo_off, SEEK_SET);
     fwrite(taskinfo, sizeof(task_info_t), tasknum, img);
     printf("appinfo size: %d bytes\n", (int)(sizeof(task_info_t) * tasknum));
+
+    // batch offset 放在 0x1f0..0x1f4（4 字节）
+    fseek(img, BATCH_OFFSET_LOC, SEEK_SET);
+    fwrite(&batch_offset, sizeof(batch_offset), 1, img);
+    printf("batch offset: %d bytes\n", batch_offset);
 }
 
 /* print an error message and exit */
