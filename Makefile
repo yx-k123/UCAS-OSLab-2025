@@ -159,7 +159,7 @@ elf: $(ELF_BOOT) $(ELF_MAIN) $(ELF_USER)
 # -----------------------------------------------------------------------
 
 $(ELF_CREATEIMAGE): $(SRC_CREATEIMAGE)
-	$(HOST_CC) $(SRC_CREATEIMAGE) -o $@ -ggdb -Wall
+	$(HOST_CC) $(SRC_CREATEIMAGE) -o $@ -ggdb -Wall -O2
 
 image: $(ELF_CREATEIMAGE) $(ELF_BOOT) $(ELF_MAIN) $(ELF_USER)
 	cd $(DIR_BUILD) && ./$(<F) --extended $(filter-out $(<F), $(^F))

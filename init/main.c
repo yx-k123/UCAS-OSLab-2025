@@ -140,7 +140,7 @@ static void init_task_info(void)
 static void print_task_names(void)
 {
     bios_putstr("Available tasks:\n\r");
-    for (int i = 0; i < TASK_MAXNUM; ++i)
+    for (int i = 0; i < 4; ++i)
     {
         if (tasks[i].name[0] != '\0') 
         {
@@ -166,7 +166,7 @@ int main(void)
     // Init task information (〃'▽'〃)
     init_task_info();
 
-    // print_task_names();
+    print_task_names();
 
     // Output 'Hello OS!', bss check result and OS version
     char output_str[] = "bss check: _ version: _\n\r";
