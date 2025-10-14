@@ -3,6 +3,9 @@
 // os size location (os_size could be sectors [p1-task3] or bytes [p1-task4])
 .equ os_size_loc, 0x502001fc
 
+// app size location
+.equ app_size_loc, 0x502001fa
+
 // kernel address (move kernel to here, and jmp here to start kernel)
 .equ kernel, 0x50201000
 
@@ -34,7 +37,13 @@ main:
 	// TODO: [p1-task2] call BIOS to read kernel in SD card
 	la a0, kernel            # 目标内存地址
 	la t1, os_size_loc
-	lh a1, 0(t1)             # 读取OS大小
+	lh a1, 0(t1)             # 读取OS大小（字节数）
+
+	# 将字节数转换为扇区数
+	li t2, 512               # 每扇区字节数（SECTOR_SIZE）
+	addi a1, a1, 511         # a1 = a1 + 511（向上取整）
+	div a1, a1, t2           # a1 = a1 / 512（字节数转扇区数）
+
 	li a2, 1                 # 起始块号
 	li a3, 0                 # IGNORE
 	li a4, 0                 # IGNORE
@@ -45,7 +54,6 @@ main:
 	jalr t0
 
 	// TODO: [p1-task4] load task-related arguments and pass them to kernel
-
 
 	// TODO: [p1-task2] jump to kernel to start UCAS-OS
 	la t0, kernel

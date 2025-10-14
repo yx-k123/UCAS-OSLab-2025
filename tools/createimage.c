@@ -11,7 +11,9 @@
 
 #define SECTOR_SIZE 512
 #define BOOT_LOADER_SIG_OFFSET 0x1fe
-#define OS_SIZE_LOC (BOOT_LOADER_SIG_OFFSET - 2)
+#define OS_SIZE_LOC (BOOT_LOADER_SIG_OFFSET - 2)       // 0x1fc..0x1fd
+#define APPINFO_SIZE_LOC (BOOT_LOADER_SIG_OFFSET - 6)  // 0x1f8..0x1fb
+#define TASKNUM_LOC (BOOT_LOADER_SIG_OFFSET - 8)       // 0x1f6..0x1f7
 #define BOOT_LOADER_SIG_1 0x55
 #define BOOT_LOADER_SIG_2 0xaa
 
@@ -19,7 +21,9 @@
 
 /* TODO: [p1-task4] design your own task_info_t */
 typedef struct {
-
+    char name[32];      // Task name
+    int offset;       // Offset in the image file
+    int size;         // Size of the task
 } task_info_t;
 
 #define TASK_MAXNUM 16
@@ -82,6 +86,10 @@ static void create_image(int nfiles, char *files[])
     int tasknum = nfiles - 2;
     int nbytes_kernel = 0;
     int phyaddr = 0;
+    int appinfo_off = -1;
+    int appinfo_size = (int)(sizeof(task_info_t) * tasknum);
+    printf("tasknum: %d\n", tasknum);
+
     FILE *fp = NULL, *img = NULL;
     Elf64_Ehdr ehdr;
     Elf64_Phdr phdr;
@@ -94,9 +102,7 @@ static void create_image(int nfiles, char *files[])
     for (int fidx = 0; fidx < nfiles; ++fidx) {
 
         int taskidx = fidx - 2;
-
-        /* 记录本文件开始写入时的物理偏移 */
-        int file_start = phyaddr;
+        int start_addr = phyaddr;
 
         /* open input file */
         fp = fopen(*files, "r");
@@ -124,27 +130,35 @@ static void create_image(int nfiles, char *files[])
         }
 
         /* write padding bytes */
+        /**
+        * TODO:
+        * 1. [p1-task3] do padding so that the kernel and every app program
+        *  occupies the same number of sectors
+        * 2. [p1-task4] only padding bootblock is allowed!
+        */
         if (strcmp(*files, "bootblock") == 0) {
-            write_padding(img, &phyaddr, file_start + SECTOR_SIZE);
-        } else {
-            int fixed_sectors = 15;
-
-            int written_bytes   = phyaddr - file_start;
-            int written_sectors = NBYTES2SEC(written_bytes);
-            int padding_sectors = fixed_sectors - written_sectors;
-
-            if (padding_sectors > 0) {
-                int new_phyaddr = phyaddr + padding_sectors * SECTOR_SIZE;
-                write_padding(img, &phyaddr, new_phyaddr);
-            }
-            // 若是 p1-task4，请直接不填充：
-            // (void)fixed_sectors; (void)written_sectors; (void)padding_sectors;
+            write_padding(img, &phyaddr, SECTOR_SIZE);
+        } 
+        if (strcmp(*files, "main") == 0) {
+            appinfo_off = phyaddr;                 
+            write_padding(img, &phyaddr, appinfo_off + appinfo_size);
+        } 
+        if (taskidx >= 0 && taskidx < tasknum) {
+            strncpy(taskinfo[taskidx].name, *files, sizeof(taskinfo[taskidx].name) - 1);
+            taskinfo[taskidx].name[sizeof(taskinfo[taskidx].name) - 1] = '\0';
+            taskinfo[taskidx].offset = start_addr;
+            taskinfo[taskidx].size = phyaddr - start_addr;
+            printf("task %d: %s, offset: %d, size: %d\n", taskidx, taskinfo[taskidx].name,
+                   taskinfo[taskidx].offset, taskinfo[taskidx].size);
         }
 
         fclose(fp);
         files++;
     }
     write_img_info(nbytes_kernel, taskinfo, tasknum, img);
+    /* padding for left space */
+    fseek(img, phyaddr, SEEK_SET);
+    write_padding(img, &phyaddr, NBYTES2SEC(phyaddr) * SECTOR_SIZE);
 
     fclose(img);
 }
@@ -223,14 +237,29 @@ static void write_padding(FILE *img, int *phyaddr, int new_phyaddr)
 static void write_img_info(int nbytes_kernel, task_info_t *taskinfo,
                            short tasknum, FILE * img)
 {
-    // TODO: [p1-task3] & [p1-task4] write image info to some certain places
-    // NOTE: os size, infomation about app-info sector(s) ...
+    uint16_t kernel_bytes = (uint16_t)nbytes_kernel;
+    uint16_t tnum = (uint16_t)tasknum;
+    uint32_t appinfo_off = (uint32_t)(SECTOR_SIZE + nbytes_kernel);
 
-    short kernel_sectors = NBYTES2SEC(nbytes_kernel);
-
+    // OS 占用字节数放在 0x1fc..0x1fd
     fseek(img, OS_SIZE_LOC, SEEK_SET);
-    fwrite(&kernel_sectors, sizeof(short), 1, img);
-    fwrite(&tasknum, sizeof(short), 1, img);
+    fwrite(&kernel_bytes, sizeof(kernel_bytes), 1, img);
+    printf("kernel size: %d bytes\n", kernel_bytes);
+
+    // 任务数量放在 0x1f6..0x1f7，避免覆盖 0x55AA
+    fseek(img, TASKNUM_LOC, SEEK_SET);
+    fwrite(&tnum, sizeof(tnum), 1, img);
+    printf("task num: %d\n", tnum);
+
+    // appinfo 偏移放在 0x1f8..0x1fb（4 字节）
+    fseek(img, APPINFO_SIZE_LOC, SEEK_SET);
+    fwrite(&appinfo_off, sizeof(appinfo_off), 1, img);
+    printf("appinfo off: %d bytes\n", appinfo_off);
+
+    // 写入taskinfo数组
+    fseek(img, appinfo_off, SEEK_SET);
+    fwrite(taskinfo, sizeof(task_info_t), tasknum, img);
+    printf("appinfo size: %d bytes\n", (int)(sizeof(task_info_t) * tasknum));
 }
 
 /* print an error message and exit */
