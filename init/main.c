@@ -104,14 +104,6 @@ static void init_task_info(void)
     int max_bytes   = TASK_MAXNUM * (int)sizeof(task_info_t);
     int read_bytes  = appinfo_size > max_bytes ? max_bytes : appinfo_size;
 
-    bios_putstr("\n\rappinfo_off: ");
-    int_to_str(appinfo_off, num_str);
-    bios_putstr(num_str);
-    bios_putstr("\n\rread_bytes: ");
-    int_to_str(read_bytes, num_str);
-    bios_putstr(num_str);
-    bios_putstr("\n\r");
-
     read_bytes = (read_bytes / (int)sizeof(task_info_t)) * (int)sizeof(task_info_t);
     if (read_bytes <= 0)
         return;
