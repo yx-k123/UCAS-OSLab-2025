@@ -5,26 +5,28 @@ build/bss:     file format elf64-littleriscv
 Disassembly of section .text:
 
 0000000052020000 <_start>:
-    52020000:	00000297          	auipc	t0,0x0
-    52020004:	13828293          	addi	t0,t0,312 # 52020138 <buf>
-    52020008:	00000317          	auipc	t1,0x0
-    5202000c:	16830313          	addi	t1,t1,360 # 52020170 <__BSS_END__>
-    52020010:	0062d763          	bge	t0,t1,5202001e <setup_stack>
+    52020000:	1141                	addi	sp,sp,-16
+    52020002:	e422                	sd	s0,8(sp)
+    52020004:	e006                	sd	ra,0(sp)
+    52020006:	0800                	addi	s0,sp,16
+    52020008:	00000297          	auipc	t0,0x0
+    5202000c:	13028293          	addi	t0,t0,304 # 52020138 <buf>
+    52020010:	00000317          	auipc	t1,0x0
+    52020014:	16030313          	addi	t1,t1,352 # 52020170 <__BSS_END__>
 
-0000000052020014 <clear_bss>:
-    52020014:	0002a023          	sw	zero,0(t0)
-    52020018:	0291                	addi	t0,t0,4
-    5202001a:	fe62cde3          	blt	t0,t1,52020014 <clear_bss>
-
-000000005202001e <setup_stack>:
-    5202001e:	50500137          	lui	sp,0x50500
+0000000052020018 <do_clear>:
+    52020018:	0002a023          	sw	zero,0(t0)
+    5202001c:	0291                	addi	t0,t0,4
+    5202001e:	fe62cde3          	blt	t0,t1,52020018 <do_clear>
 
 0000000052020022 <enter_main>:
     52020022:	014000ef          	jal	52020036 <main>
 
 0000000052020026 <finish_task>:
-    52020026:	05d00893          	li	a7,93
-    5202002a:	00000073          	ecall
+    52020026:	6082                	ld	ra,0(sp)
+    52020028:	6422                	ld	s0,8(sp)
+    5202002a:	0141                	addi	sp,sp,16
+    5202002c:	8082                	ret
 
 000000005202002e <loop>:
     5202002e:	10500073          	wfi
@@ -32,7 +34,7 @@ Disassembly of section .text:
     52020034:	0001                	nop
 
 0000000052020036 <main>:
-    52020036:	1141                	addi	sp,sp,-16 # 504ffff0 <_start-0x1b20010>
+    52020036:	1141                	addi	sp,sp,-16
     52020038:	e406                	sd	ra,8(sp)
     5202003a:	00000797          	auipc	a5,0x0
     5202003e:	0fe78793          	addi	a5,a5,254 # 52020138 <buf>

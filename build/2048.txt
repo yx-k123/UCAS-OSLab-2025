@@ -5,26 +5,28 @@ build/2048:     file format elf64-littleriscv
 Disassembly of section .text:
 
 0000000052000000 <_start>:
-    52000000:	00001297          	auipc	t0,0x1
-    52000004:	25828293          	addi	t0,t0,600 # 52001258 <__BSS_END__>
-    52000008:	00001317          	auipc	t1,0x1
-    5200000c:	25030313          	addi	t1,t1,592 # 52001258 <__BSS_END__>
-    52000010:	0062d763          	bge	t0,t1,5200001e <setup_stack>
+    52000000:	1141                	addi	sp,sp,-16
+    52000002:	e422                	sd	s0,8(sp)
+    52000004:	e006                	sd	ra,0(sp)
+    52000006:	0800                	addi	s0,sp,16
+    52000008:	00001297          	auipc	t0,0x1
+    5200000c:	25028293          	addi	t0,t0,592 # 52001258 <__BSS_END__>
+    52000010:	00001317          	auipc	t1,0x1
+    52000014:	24830313          	addi	t1,t1,584 # 52001258 <__BSS_END__>
 
-0000000052000014 <clear_bss>:
-    52000014:	0002a023          	sw	zero,0(t0)
-    52000018:	0291                	addi	t0,t0,4
-    5200001a:	fe62cde3          	blt	t0,t1,52000014 <clear_bss>
-
-000000005200001e <setup_stack>:
-    5200001e:	50500137          	lui	sp,0x50500
+0000000052000018 <do_clear>:
+    52000018:	0002a023          	sw	zero,0(t0)
+    5200001c:	0291                	addi	t0,t0,4
+    5200001e:	fe62cde3          	blt	t0,t1,52000018 <do_clear>
 
 0000000052000022 <enter_main>:
     52000022:	014000ef          	jal	52000036 <main>
 
 0000000052000026 <finish_task>:
-    52000026:	05d00893          	li	a7,93
-    5200002a:	00000073          	ecall
+    52000026:	6082                	ld	ra,0(sp)
+    52000028:	6422                	ld	s0,8(sp)
+    5200002a:	0141                	addi	sp,sp,16
+    5200002c:	8082                	ret
 
 000000005200002e <loop>:
     5200002e:	10500073          	wfi
@@ -291,7 +293,7 @@ Disassembly of section .text:
     520002d8:	8782                	jr	a5
 
 00000000520002da <getchar>:
-    520002da:	1101                	addi	sp,sp,-32 # 504fffe0 <_start-0x1b00020>
+    520002da:	1101                	addi	sp,sp,-32
     520002dc:	e822                	sd	s0,16(sp)
     520002de:	52000437          	lui	s0,0x52000
     520002e2:	e426                	sd	s1,8(sp)

@@ -22,14 +22,17 @@ uint64_t load_task_img(char *taskname)
             int task_entry = TASK_MEM_BASE + TASK_SIZE * i;
 
             int block_id = tasks[i].offset / SECTOR_SIZE;
-            int num_of_blocks = NBYTES2SEC(tasks[i].size);
+            int inblk_off  = tasks[i].offset % SECTOR_SIZE;
 
-            if (sd_read((unsigned)task_entry, (unsigned)num_of_blocks, (unsigned)block_id) < 0) {
+            unsigned total_bytes  = inblk_off + tasks[i].size;
+            unsigned num_of_blks  = (total_bytes + SECTOR_SIZE - 1) / SECTOR_SIZE;
+
+            if (sd_read((unsigned)task_entry, (unsigned)num_of_blks, (unsigned)block_id) < 0) {
                 bios_putstr("\n\rFailed to load task!");
                 return 0;
             }
 
-            return task_entry + (tasks[i].offset - block_id * SECTOR_SIZE);
+            return task_entry + inblk_off;
         }
     }
 
