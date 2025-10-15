@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0", // 调试配置的版本号，一般不用管
+    "configurations": [
+        {
+            "name": "Debug Kernel Main", // 此次调试的名称，随便
+            "type": "cppdbg", // 定义调试器的类型，这里表示使用c++调试器
+            "request": "launch", // 启动一个新的调试会话
+            "program": "build/main", // 待调试的可执行程序的路径
+            "args": [], // 这里设置可执行程序所需要的参数用于调试，比如你的程序需要一个文件名作为参数之类的
+            "stopAtEntry": true, // 程序不会再入口点处停止(即main函数)，从头运行到结束或设置的断点处
+            "cwd": "${workspaceFolder}", // 设置当前的工作目录，其他需要填写路径的地方可以用相对路径
+            "environment": [], // 设置调试的环境变量
+            "externalConsole": false, // 不使用外部控制台，调试输出将显示在内置的调试控制台中
+            "MIMode": "gdb", // 指定使用 gdb 调试器
+            "miDebuggerPath": "riscv64-unknown-linux-gnu-gdb", // gdb 调试器的路径
+            "miDebuggerServerAddress": "localhost:1234",
+        } 
+    ]
+}

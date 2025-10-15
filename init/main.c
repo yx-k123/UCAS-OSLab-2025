@@ -74,10 +74,10 @@ static void init_jmptab(void)
 {
     volatile long (*(*jmptab))() = (volatile long (*(*))())KERNEL_JMPTAB_BASE;
 
-    jmptab[CONSOLE_PUTSTR]  = (long (*)())port_write;
-    jmptab[CONSOLE_PUTCHAR] = (long (*)())port_write_ch;
-    jmptab[CONSOLE_GETCHAR] = (long (*)())port_read_ch;
-    jmptab[SD_READ]         = (long (*)())sd_read;
+    jmptab[CONSOLE_PUTSTR]  = (volatile long (*)())port_write;
+    jmptab[CONSOLE_PUTCHAR] = (volatile long (*)())port_write_ch;
+    jmptab[CONSOLE_GETCHAR] = (volatile long (*)())port_read_ch;
+    jmptab[SD_READ]         = (volatile long (*)())sd_read;
 }
 
 static void init_task_info(void)
@@ -153,21 +153,32 @@ static void batch_write(void)
 
     int batch_off = 0;
     memcpy((uint8_t *)&batch_off, bootsec + BATCH_OFFSET_LOC, sizeof(int));
-    if (batch_off <= 0) { bios_putstr("no batch offset found\n\r"); return; }
+    if (batch_off <= 0) { 
+        bios_putstr("no batch offset found\n\r"); 
+        return; 
+    }
 
     bios_putstr("Enter batch (task names, space separated): ");
     char line[256]; int len = 0;
     while (1) {
         char ch = port_read_ch();
-        if (ch == '\r' || ch == '\n') { line[len] = '\0'; bios_putstr("\n\r"); break; }
-        if (ch >= ' ' && ch <= '~' && len < (int)sizeof(line) - 1) { line[len++] = ch; port_write_ch(ch); }
+        if (ch == '\r' || ch == '\n') { 
+            line[len] = '\0'; 
+            bios_putstr("\n\r"); 
+            break; 
+        }
+        if (ch >= ' ' && ch <= '~' && len < (int)sizeof(line) - 1) { 
+            line[len++] = ch; 
+            port_write_ch(ch); 
+        }
     }
 
     static char out[BATCH_AREA_SIZE];
     memset((uint8_t *)out, 0, sizeof(out));
     unsigned used = 0;
 
-    const char *p = line; char name[64];
+    const char *p = line; 
+    char name[64];
     while (*p) {
         while (*p==' '||*p=='\t') ++p;
         if (!*p) break;
@@ -176,11 +187,16 @@ static void batch_write(void)
         name[k] = '\0';
 
         if (!task_exists(name)) {
-            bios_putstr("batch-write: no such task: "); bios_putstr(name); bios_putstr("\n\r");
+            bios_putstr("batch-write: no such task: "); 
+            bios_putstr(name); 
+            bios_putstr("\n\r");
             return;
         }
         unsigned n = (unsigned)strlen(name);
-        if (used + n + 1 >= sizeof(out)) { bios_putstr("batch-write: too long\n\r"); return; }
+        if (used + n + 1 >= sizeof(out)) { 
+            bios_putstr("batch-write: too long\n\r"); 
+            return; 
+        }
         memcpy((uint8_t *)out + used, (const uint8_t *)name, n);
         used += n;
         out[used++] = ' ';
@@ -226,11 +242,15 @@ static void batch_run(void)
         if (!*p) break;
         char *s = p;
         while (*p && *p!=' '&&*p!='\t'&&*p!='\r'&&*p!='\n') ++p;
-        char c = *p; *p = 0;
+        char c = *p; 
+        *p = 0;
 
         if (!task_exists(s)) {
-            bios_putstr("batch-run: no such task: "); bios_putstr(s); bios_putstr("\n\r");
-            *p = c; return;
+            bios_putstr("batch-run: no such task: "); 
+            bios_putstr(s); 
+            bios_putstr("\n\r");
+            *p = c; 
+            return;
         }
         bios_putstr("Run: "); 
         bios_putstr(s); 

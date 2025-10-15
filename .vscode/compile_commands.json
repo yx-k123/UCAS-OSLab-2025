@@ -1,0 +1,331 @@
+[
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./arch/riscv/include",
+      "-o",
+      "build/bootblock",
+      "./arch/riscv/boot/bootblock.S"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/arch/riscv/boot/bootblock.S",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/bootblock"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./arch/riscv/include",
+      "-Iinclude",
+      "-o",
+      "build/main",
+      "./arch/riscv/kernel/head.S"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/arch/riscv/kernel/head.S",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/main"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./arch/riscv/include",
+      "-Iinclude",
+      "-o",
+      "build/main",
+      "./init/main.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/init/main.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/main"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./arch/riscv/include",
+      "-Iinclude",
+      "-o",
+      "build/main",
+      "./arch/riscv/bios/common.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/arch/riscv/bios/common.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/main"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./arch/riscv/include",
+      "-Iinclude",
+      "-o",
+      "build/main",
+      "./kernel/loader/loader.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/kernel/loader/loader.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/main"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./arch/riscv/include",
+      "-Iinclude",
+      "-o",
+      "build/main",
+      "./libs/string.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/libs/string.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/main"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./tiny_libc/include",
+      "-I./arch/riscv/include",
+      "-c",
+      "-o",
+      "build/crt0.o",
+      "arch/riscv/crt0/crt0.S"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/arch/riscv/crt0/crt0.S",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/crt0.o"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./tiny_libc/include",
+      "./build/crt0.o",
+      "-o",
+      "build/1",
+      "test/test_project1/1.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/test/test_project1/1.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/1"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./tiny_libc/include",
+      "./build/crt0.o",
+      "-o",
+      "build/2",
+      "test/test_project1/2.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/test/test_project1/2.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/2"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./tiny_libc/include",
+      "./build/crt0.o",
+      "-o",
+      "build/2048",
+      "test/test_project1/2048.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/test/test_project1/2048.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/2048"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./tiny_libc/include",
+      "./build/crt0.o",
+      "-o",
+      "build/3",
+      "test/test_project1/3.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/test/test_project1/3.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/3"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./tiny_libc/include",
+      "./build/crt0.o",
+      "-o",
+      "build/4",
+      "test/test_project1/4.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/test/test_project1/4.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/4"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./tiny_libc/include",
+      "./build/crt0.o",
+      "-o",
+      "build/auipc",
+      "test/test_project1/auipc.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/test/test_project1/auipc.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/auipc"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./tiny_libc/include",
+      "./build/crt0.o",
+      "-o",
+      "build/bss",
+      "test/test_project1/bss.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/test/test_project1/bss.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/bss"
+  },
+  {
+    "arguments": [
+      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
+      "-c",
+      "-Og",
+      "-std=gnu11",
+      "-fno-builtin",
+      "-nostdinc",
+      "-Wall",
+      "-mcmodel=medany",
+      "-ggdb3",
+      "-I./tiny_libc/include",
+      "./build/crt0.o",
+      "-o",
+      "build/data",
+      "test/test_project1/data.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/test/test_project1/data.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/data"
+  },
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-c",
+      "-ggdb",
+      "-Wall",
+      "-O2",
+      "-o",
+      "build/createimage",
+      "./tools/createimage.c"
+    ],
+    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
+    "file": "/home/stu/OSLab-RISC-V/kouyixin23/tools/createimage.c",
+    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/createimage"
+  }
+]

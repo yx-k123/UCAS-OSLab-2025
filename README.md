@@ -380,3 +380,75 @@ static void batch_run(void)
 笔者这里写入的格式是以空格分隔的任务名列表，运行时会逐个加载运行这些任务。记得在main主函数中添加对这两个函数的调用以及命令行解析。
 
 最后，任务要求我们依次启动四个测试程序，对一个数进行操作并输出。这里只需要多增加四个简单的task就行了。
+
+## 附录：clangd 配置和gdb gui
+### clangd 配置
+首先可以在vscode扩展中安装clangd插件，然后在项目根目录下创建`.vscode`文件夹和`settings.json`文件
+```bash
+mkdir .vscode
+touch .vscode/settings.json
+```
+其次，在settings.json中添加以下内容，指定clangd的编译命令目录为当前目录下的.vscode文件夹
+```json
+{
+    "clangd.arguments": [
+        "--compile-commands-dir=./.vscode"
+    ]
+}
+```
+
+然后下载`bear`工具，用于生成compile_commands.json文件
+```bash
+sudo apt install bear
+```
+
+在项目根目录下运行以下命令生成compile_commands.json文件(注意，每次修改代码后都需要重新生成该文件，且一定要clean后再生成)
+```bash
+make clean
+bear -- make all
+```
+
+随后把生成的compile_commands.json文件移动到.vscode文件夹下
+```bash
+mv compile_commands.json .vscode/
+```
+
+最后重启vscode，clangd插件就会自动加载该文件，从而实现代码补全和跳转等功能。
+
+### gdb gui
+下载插件C/C++，为避免clangd和C/C++插件冲突，可以禁用C/C++插件的intelliSenseEngine功能。
+
+在.vscode文件夹下创建launch.json文件并添加一下内容：
+```json
+{
+    "version": "0.2.0", // 调试配置的版本号，一般不用管
+    "configurations": [
+        {
+            "name": "Debug Kernel Main", // 此次调试的名称，随便
+            "type": "cppdbg", // 定义调试器的类型，这里表示使用c++调试器
+            "request": "launch", // 启动一个新的调试会话
+            "program": "build/main", // 待调试的可执行程序的路径
+            "args": [], // 这里设置可执行程序所需要的参数用于调试，比如你的程序需要一个文件名作为参数之类的
+            "stopAtEntry": true, // 程序不会再入口点处停止(即main函数)，从头运行到结束或设置的断点处
+            "cwd": "${workspaceFolder}", // 设置当前的工作目录，其他需要填写路径的地方可以用相对路径
+            "environment": [], // 设置调试的环境变量
+            "externalConsole": false, // 不使用外部控制台，调试输出将显示在内置的调试控制台中
+            "MIMode": "gdb", // 指定使用 gdb 调试器
+            "miDebuggerPath": "riscv64-unknown-linux-gnu-gdb", // gdb 调试器的路径
+            "miDebuggerServerAddress": "localhost:1234",
+        } 
+    ]
+}
+```
+
+然后启动qemu并开启gdb调试端口
+```bash
+make debug
+```
+
+然后按住F5键启动调试即可。
+
+注意上述配置文件中的路径可以根据实际情况进行修改"program"字段，指定你要调试的可执行文件路径。
+比如你可以指定为"build/bootblock"来调试引导块，或者"build/main"来调试内核主程序。
+
+最后，感谢孙广润助教对clangd配置和gdb gui的指导。
