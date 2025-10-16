@@ -18,8 +18,13 @@ int main()
             buf[index] = '\0';
             bios_putstr("\n\r");
             break;
-        }
-        else if (ch >= '0' && ch <= '9' && index < 9)
+        } else if (ch == 127 && index > 0)
+        {
+            index--;
+            bios_putchar('\b');
+            bios_putchar(' ');
+            bios_putchar('\b');
+        } else if (ch >= '0' && ch <= '9' && index < 9)
         {
             bios_putchar(ch);
             buf[index++] = ch;

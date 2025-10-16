@@ -10,9 +10,9 @@ Disassembly of section .text:
     52000004:	e006                	sd	ra,0(sp)
     52000006:	0800                	addi	s0,sp,16
     52000008:	00000297          	auipc	t0,0x0
-    5200000c:	26028293          	addi	t0,t0,608 # 52000268 <__BSS_END__>
+    5200000c:	29028293          	addi	t0,t0,656 # 52000298 <__BSS_END__>
     52000010:	00000317          	auipc	t1,0x0
-    52000014:	25830313          	addi	t1,t1,600 # 52000268 <__BSS_END__>
+    52000014:	28830313          	addi	t1,t1,648 # 52000298 <__BSS_END__>
 
 0000000052000018 <do_clear>:
     52000018:	0002a023          	sw	zero,0(t0)
@@ -80,62 +80,76 @@ Disassembly of section .text:
 000000005200008e <main>:
     5200008e:	715d                	addi	sp,sp,-80
     52000090:	e486                	sd	ra,72(sp)
-    52000092:	e0a2                	sd	s0,64(sp)
-    52000094:	fc26                	sd	s1,56(sp)
-    52000096:	f84a                	sd	s2,48(sp)
-    52000098:	f44e                	sd	s3,40(sp)
-    5200009a:	00000517          	auipc	a0,0x0
-    5200009e:	0b650513          	addi	a0,a0,182 # 52000150 <main+0xc2>
-    520000a2:	f95ff0ef          	jal	52000036 <bios_putstr>
-    520000a6:	4481                	li	s1,0
-    520000a8:	4901                	li	s2,0
-    520000aa:	fc5ff0ef          	jal	5200006e <bios_getchar>
-    520000ae:	0ff57993          	zext.b	s3,a0
-    520000b2:	ff398713          	addi	a4,s3,-13
-    520000b6:	00173713          	seqz	a4,a4
-    520000ba:	ff698793          	addi	a5,s3,-10
-    520000be:	0017b793          	seqz	a5,a5
-    520000c2:	8fd9                	or	a5,a5,a4
-    520000c4:	ef9d                	bnez	a5,52000102 <main+0x74>
-    520000c6:	fd09879b          	addiw	a5,s3,-48
-    520000ca:	0ff7f793          	zext.b	a5,a5
-    520000ce:	4725                	li	a4,9
-    520000d0:	fcf76de3          	bltu	a4,a5,520000aa <main+0x1c>
-    520000d4:	47a1                	li	a5,8
-    520000d6:	fc97cae3          	blt	a5,s1,520000aa <main+0x1c>
-    520000da:	854e                	mv	a0,s3
-    520000dc:	f77ff0ef          	jal	52000052 <bios_putchar>
-    520000e0:	02048793          	addi	a5,s1,32
-    520000e4:	978a                	add	a5,a5,sp
-    520000e6:	ff378023          	sb	s3,-32(a5)
-    520000ea:	0029179b          	slliw	a5,s2,0x2
-    520000ee:	012787bb          	addw	a5,a5,s2
-    520000f2:	0017979b          	slliw	a5,a5,0x1
-    520000f6:	fd09851b          	addiw	a0,s3,-48
-    520000fa:	00a7893b          	addw	s2,a5,a0
-    520000fe:	2485                	addiw	s1,s1,1
-    52000100:	b76d                	j	520000aa <main+0x1c>
-    52000102:	02048793          	addi	a5,s1,32
-    52000106:	002784b3          	add	s1,a5,sp
-    5200010a:	fe048023          	sb	zero,-32(s1)
-    5200010e:	00000517          	auipc	a0,0x0
-    52000112:	07a50513          	addi	a0,a0,122 # 52000188 <main+0xfa>
-    52000116:	f21ff0ef          	jal	52000036 <bios_putstr>
-    5200011a:	00000517          	auipc	a0,0x0
-    5200011e:	07650513          	addi	a0,a0,118 # 52000190 <main+0x102>
-    52000122:	f15ff0ef          	jal	52000036 <bios_putstr>
-    52000126:	850a                	mv	a0,sp
-    52000128:	f0fff0ef          	jal	52000036 <bios_putstr>
-    5200012c:	00000517          	auipc	a0,0x0
-    52000130:	05c50513          	addi	a0,a0,92 # 52000188 <main+0xfa>
-    52000134:	f03ff0ef          	jal	52000036 <bios_putstr>
-    52000138:	540007b7          	lui	a5,0x54000
-    5200013c:	0127a023          	sw	s2,0(a5) # 54000000 <__BSS_END__+0x1fffd98>
-    52000140:	4501                	li	a0,0
-    52000142:	60a6                	ld	ra,72(sp)
-    52000144:	6406                	ld	s0,64(sp)
-    52000146:	74e2                	ld	s1,56(sp)
-    52000148:	7942                	ld	s2,48(sp)
-    5200014a:	79a2                	ld	s3,40(sp)
-    5200014c:	6161                	addi	sp,sp,80
-    5200014e:	8082                	ret
+    52000092:	fc26                	sd	s1,56(sp)
+    52000094:	f84a                	sd	s2,48(sp)
+    52000096:	f44e                	sd	s3,40(sp)
+    52000098:	00000517          	auipc	a0,0x0
+    5200009c:	0e850513          	addi	a0,a0,232 # 52000180 <main+0xf2>
+    520000a0:	f97ff0ef          	jal	52000036 <bios_putstr>
+    520000a4:	4481                	li	s1,0
+    520000a6:	4901                	li	s2,0
+    520000a8:	a821                	j	520000c0 <main+0x32>
+    520000aa:	34fd                	addiw	s1,s1,-1
+    520000ac:	4521                	li	a0,8
+    520000ae:	fa5ff0ef          	jal	52000052 <bios_putchar>
+    520000b2:	02000513          	li	a0,32
+    520000b6:	f9dff0ef          	jal	52000052 <bios_putchar>
+    520000ba:	4521                	li	a0,8
+    520000bc:	f97ff0ef          	jal	52000052 <bios_putchar>
+    520000c0:	fafff0ef          	jal	5200006e <bios_getchar>
+    520000c4:	0ff57993          	zext.b	s3,a0
+    520000c8:	ff398713          	addi	a4,s3,-13
+    520000cc:	00173713          	seqz	a4,a4
+    520000d0:	ff698793          	addi	a5,s3,-10
+    520000d4:	0017b793          	seqz	a5,a5
+    520000d8:	8fd9                	or	a5,a5,a4
+    520000da:	ebb9                	bnez	a5,52000130 <main+0xa2>
+    520000dc:	f8198793          	addi	a5,s3,-127
+    520000e0:	0017b793          	seqz	a5,a5
+    520000e4:	00902733          	sgtz	a4,s1
+    520000e8:	8ff9                	and	a5,a5,a4
+    520000ea:	f3e1                	bnez	a5,520000aa <main+0x1c>
+    520000ec:	fd09879b          	addiw	a5,s3,-48
+    520000f0:	0ff7f793          	zext.b	a5,a5
+    520000f4:	4725                	li	a4,9
+    520000f6:	fcf765e3          	bltu	a4,a5,520000c0 <main+0x32>
+    520000fa:	47a1                	li	a5,8
+    520000fc:	fc97c2e3          	blt	a5,s1,520000c0 <main+0x32>
+    52000100:	e0a2                	sd	s0,64(sp)
+    52000102:	0ff57413          	zext.b	s0,a0
+    52000106:	8522                	mv	a0,s0
+    52000108:	f4bff0ef          	jal	52000052 <bios_putchar>
+    5200010c:	02048793          	addi	a5,s1,32
+    52000110:	978a                	add	a5,a5,sp
+    52000112:	ff378023          	sb	s3,-32(a5)
+    52000116:	0029179b          	slliw	a5,s2,0x2
+    5200011a:	012787bb          	addw	a5,a5,s2
+    5200011e:	0017979b          	slliw	a5,a5,0x1
+    52000122:	fd04051b          	addiw	a0,s0,-48
+    52000126:	00a7893b          	addw	s2,a5,a0
+    5200012a:	2485                	addiw	s1,s1,1
+    5200012c:	6406                	ld	s0,64(sp)
+    5200012e:	bf49                	j	520000c0 <main+0x32>
+    52000130:	02048793          	addi	a5,s1,32
+    52000134:	002784b3          	add	s1,a5,sp
+    52000138:	fe048023          	sb	zero,-32(s1)
+    5200013c:	00000517          	auipc	a0,0x0
+    52000140:	07c50513          	addi	a0,a0,124 # 520001b8 <main+0x12a>
+    52000144:	ef3ff0ef          	jal	52000036 <bios_putstr>
+    52000148:	00000517          	auipc	a0,0x0
+    5200014c:	07850513          	addi	a0,a0,120 # 520001c0 <main+0x132>
+    52000150:	ee7ff0ef          	jal	52000036 <bios_putstr>
+    52000154:	850a                	mv	a0,sp
+    52000156:	ee1ff0ef          	jal	52000036 <bios_putstr>
+    5200015a:	00000517          	auipc	a0,0x0
+    5200015e:	05e50513          	addi	a0,a0,94 # 520001b8 <main+0x12a>
+    52000162:	ed5ff0ef          	jal	52000036 <bios_putstr>
+    52000166:	540007b7          	lui	a5,0x54000
+    5200016a:	0127a023          	sw	s2,0(a5) # 54000000 <__BSS_END__+0x1fffd68>
+    5200016e:	4501                	li	a0,0
+    52000170:	60a6                	ld	ra,72(sp)
+    52000172:	74e2                	ld	s1,56(sp)
+    52000174:	7942                	ld	s2,48(sp)
+    52000176:	79a2                	ld	s3,40(sp)
+    52000178:	6161                	addi	sp,sp,80
+    5200017a:	8082                	ret

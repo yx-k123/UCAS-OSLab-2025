@@ -21,43 +21,6 @@ char buf[VERSION_BUF];
 // Task info array
 task_info_t tasks[TASK_MAXNUM];
 
-static void int_to_str(int num, char *str)
-{
-    char *p = str;
-    char *p1, *p2;
-    int is_negative = 0;
-
-    // Handle negative numbers
-    if (num < 0) {
-        is_negative = 1;
-        num = -num;
-    }
-
-    // Convert integer to string
-    do {
-        *p++ = (num % 10) + '0';
-        num /= 10;
-    } while (num > 0);
-
-    // Add negative sign if needed
-    if (is_negative) {
-        *p++ = '-';
-    }
-
-    *p = '\0';
-
-    // Reverse the string
-    p1 = str;
-    p2 = p - 1;
-    while (p1 < p2) {
-        char temp = *p1;
-        *p1 = *p2;
-        *p2 = temp;
-        p1++;
-        p2--;
-    }
-}
-
 static int bss_check(void)
 {
     for (int i = 0; i < VERSION_BUF; ++i)
@@ -78,6 +41,7 @@ static void init_jmptab(void)
     jmptab[CONSOLE_PUTCHAR] = (volatile long (*)())port_write_ch;
     jmptab[CONSOLE_GETCHAR] = (volatile long (*)())port_read_ch;
     jmptab[SD_READ]         = (volatile long (*)())sd_read;
+    jmptab[SD_WRITE]        = (volatile long (*)())sd_write;
 }
 
 static void init_task_info(void)
@@ -85,7 +49,7 @@ static void init_task_info(void)
     // TODO: [p1-task4] Init 'tasks' array via reading app-info sector
     // NOTE: You need to get some related arguments from bootblock first
     uint8_t bootsec[SECTOR_SIZE];
-    if (sd_read((unsigned)(uintptr_t)bootsec, 1, 0) < 0) {
+    if (bios_sd_read((unsigned)(uintptr_t)bootsec, 1, 0) < 0) {
         bios_putstr("sd_read boot sector failed\n\r");
         return;
     }
@@ -94,11 +58,9 @@ static void init_task_info(void)
     int appinfo_size = 0;
     int tasknum = 0;
 
-    memcpy((uint8_t *)&os_size,      bootsec + OS_SIZE_LOC,                 sizeof(short));
-    memcpy((uint8_t *)&appinfo_size, bootsec + APPINFO_SIZE_LOC,            sizeof(int));
-    memcpy((uint8_t *)&tasknum,      bootsec + TASKNUM_LOC, sizeof(short));
-
-    char num_str[16];
+    memcpy((uint8_t *)&os_size, bootsec + OS_SIZE_LOC, sizeof(short));
+    memcpy((uint8_t *)&appinfo_size, bootsec + APPINFO_SIZE_LOC, sizeof(int));
+    memcpy((uint8_t *)&tasknum, bootsec + TASKNUM_LOC, sizeof(short));
 
     int appinfo_off = SECTOR_SIZE + os_size;
     int max_bytes   = TASK_MAXNUM * (int)sizeof(task_info_t);
@@ -114,7 +76,7 @@ static void init_task_info(void)
     unsigned nsec       = NBYTES2SEC(total_bytes);
 
     uint8_t tmpbuf[2 * SECTOR_SIZE + TASK_MAXNUM * sizeof(task_info_t)];
-    if (sd_read((unsigned)(uintptr_t)tmpbuf, nsec, start_lba) < 0) {
+    if (bios_sd_read((unsigned)(uintptr_t)tmpbuf, nsec, start_lba) < 0) {
         bios_putstr("sd_read app-info failed\n\r");
         return;
     }
@@ -146,7 +108,7 @@ static int task_exists(const char *name) {
 static void batch_write(void)
 {
     uint8_t bootsec[SECTOR_SIZE];
-    if (sd_read((unsigned)(uintptr_t)bootsec, 1, 0) < 0) {
+    if (bios_sd_read((unsigned)(uintptr_t)bootsec, 1, 0) < 0) {
         bios_putstr("sd_read boot sector failed\n\r");
         return;
     }
@@ -161,15 +123,21 @@ static void batch_write(void)
     bios_putstr("Enter batch (task names, space separated): ");
     char line[256]; int len = 0;
     while (1) {
-        char ch = port_read_ch();
+        char ch = bios_getchar();
         if (ch == '\r' || ch == '\n') { 
             line[len] = '\0'; 
             bios_putstr("\n\r"); 
             break; 
         }
+        if (ch == 127 && len > 0) { 
+            len--; 
+            bios_putchar('\b'); 
+            bios_putchar(' '); 
+            bios_putchar('\b'); 
+        }
         if (ch >= ' ' && ch <= '~' && len < (int)sizeof(line) - 1) { 
             line[len++] = ch; 
-            port_write_ch(ch); 
+            bios_putchar(ch); 
         }
     }
 
@@ -206,8 +174,8 @@ static void batch_write(void)
     unsigned blk = (unsigned)(batch_off / SECTOR_SIZE);
     unsigned cnt = (unsigned)(BATCH_AREA_SIZE / SECTOR_SIZE);
 
-    if (sd_write((unsigned)(uintptr_t)out, cnt, blk) < 0) {
-        bios_putstr("batch-write: sd_write failed\n\r");
+    if (bios_sd_write((unsigned)(uintptr_t)out, cnt, blk) < 0) {
+        bios_putstr("batch-write: bios_sd_write failed\n\r");
         return;
     }
 
@@ -217,7 +185,7 @@ static void batch_write(void)
 static void batch_run(void)
 {
     uint8_t bootsec[SECTOR_SIZE];
-    if (sd_read((unsigned)(uintptr_t)bootsec, 1, 0) < 0) {
+    if (bios_sd_read((unsigned)(uintptr_t)bootsec, 1, 0) < 0) {
         bios_putstr("sd_read boot sector failed\n\r");
         return;
     }
@@ -231,7 +199,7 @@ static void batch_run(void)
     memset((uint8_t *)buf, 0, sizeof(buf));
     unsigned blk = (unsigned)(batch_off / SECTOR_SIZE);
     unsigned cnt = (unsigned)(BATCH_AREA_SIZE / SECTOR_SIZE);
-    if (sd_read((unsigned)(uintptr_t)buf, cnt, blk) < 0) {
+    if (bios_sd_read((unsigned)(uintptr_t)buf, cnt, blk) < 0) {
         bios_putstr("batch-run: sd_read failed\n\r");
         return;
     }
@@ -314,18 +282,18 @@ int main(void)
         int task_name_len = 0;
 
         while (1) {
-            char ch = port_read_ch();
+            char ch = bios_getchar();
             if (ch == '\r' || ch == '\n') {
                 task_name[task_name_len] = '\0';
                 break;
-            } else if (ch == '\b' && task_name_len > 0) {
+            } else if ((ch == 127) && task_name_len > 0) {
                 task_name_len--;
-                port_write_ch('\b');
-                port_write_ch(' ');
-                port_write_ch('\b');
+                bios_putchar('\b');
+                bios_putchar(' ');
+                bios_putchar('\b');
             } else if (ch >= ' ' && ch <= '~' && task_name_len < 31) {
                 task_name[task_name_len++] = ch;
-                port_write_ch(ch);
+                bios_putchar(ch);
             }
         }
 
