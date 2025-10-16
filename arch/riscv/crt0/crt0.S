@@ -31,8 +31,8 @@ finish_task:
     jr ra                  // return to caller
 
     /************************************************************/
-	/* Do not touch this comment. Reserved for future projects. */
-	/************************************************************/
+    /* Do not touch this comment. Reserved for future projects. */
+    /************************************************************/
 // while(1) loop, unreachable here
 loop:
     wfi
