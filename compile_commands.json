@@ -11,26 +11,6 @@
       "-mcmodel=medany",
       "-ggdb3",
       "-I./arch/riscv/include",
-      "-o",
-      "build/bootblock",
-      "./arch/riscv/boot/bootblock.S"
-    ],
-    "directory": "/home/stu/OSLab-RISC-V/kouyixin23",
-    "file": "/home/stu/OSLab-RISC-V/kouyixin23/arch/riscv/boot/bootblock.S",
-    "output": "/home/stu/OSLab-RISC-V/kouyixin23/build/bootblock"
-  },
-  {
-    "arguments": [
-      "/opt/riscv64-linux/bin/riscv64-unknown-linux-gnu-gcc",
-      "-c",
-      "-O2",
-      "-std=gnu11",
-      "-fno-builtin",
-      "-nostdinc",
-      "-Wall",
-      "-mcmodel=medany",
-      "-ggdb3",
-      "-I./arch/riscv/include",
       "-Iinclude",
       "-Idrivers",
       "-o",

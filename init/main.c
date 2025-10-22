@@ -1,3 +1,4 @@
+#include "os/list.h"
 #include <common.h>
 #include <asm.h>
 #include <asm/unistd.h>
@@ -54,6 +55,7 @@ static void init_jmptab(void)
     jmptab[MUTEX_RELEASE]   = (volatile long (*)())do_mutex_lock_release;
 
     // TODO: [p2-task1] (S-core) initialize system call table.
+    jmptab[REFLUSH]         = (volatile long (*)())screen_reflush;
 
 }
 
@@ -267,15 +269,55 @@ static void init_pcb_stack(
      */
     switchto_context_t *pt_switchto =
         (switchto_context_t *)((ptr_t)pt_regs - sizeof(switchto_context_t));
-
+    for (int i = 0; i < 14; i++)
+    {
+        pt_switchto->regs[i] = 0;
+    
+    }
+    pcb->kernel_sp = (ptr_t)pt_switchto;
+    pcb->user_sp = user_stack;
 }
 
 static void init_pcb(void)
 {
     /* TODO: [p2-task1] load needed tasks and init their corresponding PCB */
+    char task_name[][32] = {
+        "print1",
+        "print2",
+        "fly",
+    };
 
+    int task_idx = 0;
+    pid0_pcb.pid = 0;
+    pid0_pcb.user_sp = (ptr_t)pid0_stack;
+    pid0_pcb.kernel_sp = (ptr_t)pid0_stack;
+    pid0_pcb.status = TASK_RUNNING;
+    pid0_pcb.cursor_x = 0;
+    pid0_pcb.cursor_y = 0;
+
+    for (int i = 0; i < 3; i++)
+    {
+        uint64_t entry = load_task_img(task_name[i]);
+        if (!entry)
+        {
+            printk("> [INIT] Load task %s failed!\n", task_name[i]);
+            continue;
+        }
+        printk("> [INIT] Load task %s succeeded.\n", task_name[i]);
+
+        pcb[i + 1].pid = i + 1;
+        pcb[i + 1].status = TASK_READY;
+        pcb[i + 1].cursor_x = 0;
+        pcb[i + 1].cursor_y = 0;
+
+        ptr_t user_stack = allocUserPage(1) + PAGE_SIZE;
+        ptr_t kernel_stack = allocKernelPage(1) + PAGE_SIZE;
+
+        init_pcb_stack(kernel_stack, user_stack, entry, &pcb[i + 1]);
+    }
 
     /* TODO: [p2-task1] remember to initialize 'current_running' */
+    current_running = &pid0_pcb;
 
 }
 

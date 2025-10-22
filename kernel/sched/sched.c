@@ -30,9 +30,17 @@ void do_scheduler(void)
     /************************************************************/
 
     // TODO: [p2-task1] Modify the current_running pointer.
-
+    pcb_t *prev_running = current_running; 
+    if (!list_empty(&ready_queue)) {
+        list_node_t *next_node = ready_queue.next;
+        list_del(next_node);
+        current_running = list_entry(next_node, pcb_t, list);
+    } else {
+        current_running = &pid0_pcb;
+    }
 
     // TODO: [p2-task1] switch_to current_running
+    switch_to(prev_running, current_running);
 
 }
 
