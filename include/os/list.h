@@ -56,12 +56,12 @@ static inline int list_empty(const list_head *head)
     return head->next == head;
 }
 
-static inline void list_add(list_node_t *new_node, list_head *head)
+static inline void list_add_tail(list_node_t *new_node, list_head *head)
 {
-    new_node->next = head->next;
-    new_node->prev = head;
-    head->next->prev = new_node;
-    head->next = new_node;
+    new_node->prev = head->prev;
+    new_node->next = head;
+    head->prev->next = new_node;
+    head->prev = new_node;
 }
 
 static inline void list_del(list_node_t *entry)
@@ -70,6 +70,12 @@ static inline void list_del(list_node_t *entry)
     entry->next->prev = entry->prev;
     entry->next = entry;
     entry->prev = entry;
+}
+
+static inline void init_list_head(list_head *list)
+{
+    list->next = list;
+    list->prev = list;
 }
 
 #define list_entry(ptr, type, member) \

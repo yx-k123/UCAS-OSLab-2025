@@ -78,6 +78,10 @@ void sys_sleep(uint32_t time)
     /* TODO: [p2-task3] call invoke_syscall to implement sys_sleep */
 }
 
+void sys_set_sche_workload(int length) {
+
+}
+
 /************************************************************/
 /* Do not touch this comment. Reserved for future projects. */
 /************************************************************/

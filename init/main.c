@@ -269,11 +269,8 @@ static void init_pcb_stack(
      */
     switchto_context_t *pt_switchto =
         (switchto_context_t *)((ptr_t)pt_regs - sizeof(switchto_context_t));
-    for (int i = 0; i < 14; i++)
-    {
-        pt_switchto->regs[i] = 0;
-    
-    }
+    pt_switchto->regs[0] = entry_point;
+    pt_switchto->regs[1] = user_stack;
     pcb->kernel_sp = (ptr_t)pt_switchto;
     pcb->user_sp = user_stack;
 }
@@ -300,20 +297,26 @@ static void init_pcb(void)
         uint64_t entry = load_task_img(task_name[i]);
         if (!entry)
         {
-            printk("> [INIT] Load task %s failed!\n", task_name[i]);
+            bios_putstr("> [INIT] Load task ");
+            bios_putstr(task_name[i]);
+            bios_putstr(" failed.\n");
             continue;
         }
-        printk("> [INIT] Load task %s succeeded.\n", task_name[i]);
+        bios_putstr("> [INIT] Load task ");
+        bios_putstr(task_name[i]);
+        bios_putstr(" succeeded.\n");
+
+        ptr_t user_stack = allocUserPage(1) + PAGE_SIZE;
+        ptr_t kernel_stack = allocKernelPage(1) + PAGE_SIZE;
 
         pcb[i + 1].pid = i + 1;
         pcb[i + 1].status = TASK_READY;
         pcb[i + 1].cursor_x = 0;
         pcb[i + 1].cursor_y = 0;
-
-        ptr_t user_stack = allocUserPage(1) + PAGE_SIZE;
-        ptr_t kernel_stack = allocKernelPage(1) + PAGE_SIZE;
+        init_list_head(&pcb[i + 1].list);
 
         init_pcb_stack(kernel_stack, user_stack, entry, &pcb[i + 1]);
+        list_add_tail(&pcb[i + 1].list, &ready_queue);
     }
 
     /* TODO: [p2-task1] remember to initialize 'current_running' */
@@ -375,50 +378,50 @@ int main(void)
     // Infinite while loop, where CPU stays in a low-power state (QAQQQQQQQQQQQ)
     while (1)
     {   
-        bios_putstr("\n\rEnter task name: "); 
+        // bios_putstr("\n\rEnter task name: "); 
 
-        char task_name[32];
-        int task_name_len = 0;
+        // char task_name[32];
+        // int task_name_len = 0;
 
-        while (1) {
-            char ch = bios_getchar();
-            if (ch == '\r' || ch == '\n') {
-                task_name[task_name_len] = '\0';
-                break;
-            } else if ((ch == 127) && task_name_len > 0) {
-                task_name_len--;
-                bios_putchar('\b');
-                bios_putchar(' ');
-                bios_putchar('\b');
-            } else if (ch >= ' ' && ch <= '~' && task_name_len < 31) {
-                task_name[task_name_len++] = ch;
-                bios_putchar(ch);
-            }
-        }
+        // while (1) {
+        //     char ch = bios_getchar();
+        //     if (ch == '\r' || ch == '\n') {
+        //         task_name[task_name_len] = '\0';
+        //         break;
+        //     } else if ((ch == 127) && task_name_len > 0) {
+        //         task_name_len--;
+        //         bios_putchar('\b');
+        //         bios_putchar(' ');
+        //         bios_putchar('\b');
+        //     } else if (ch >= ' ' && ch <= '~' && task_name_len < 31) {
+        //         task_name[task_name_len++] = ch;
+        //         bios_putchar(ch);
+        //     }
+        // }
 
-        if (!strcmp(task_name, "ls")) {
-            bios_putstr("\n\r");
-            print_task_names();
-            continue;
-        }
-        if (!strcmp(task_name, "batch-write")) {
-            bios_putstr("\n\r");
-            batch_write();
-            continue;
-        }
-        if (!strcmp(task_name, "batch-run")) {
-            bios_putstr("\n\r");
-            batch_run();
-            continue;
-        }
+        // if (!strcmp(task_name, "ls")) {
+        //     bios_putstr("\n\r");
+        //     print_task_names();
+        //     continue;
+        // }
+        // if (!strcmp(task_name, "batch-write")) {
+        //     bios_putstr("\n\r");
+        //     batch_write();
+        //     continue;
+        // }
+        // if (!strcmp(task_name, "batch-run")) {
+        //     bios_putstr("\n\r");
+        //     batch_run();
+        //     continue;
+        // }
 
-        uint64_t entry = load_task_img(task_name);
-        if (entry) {
-            void (*task_entry)() = (void (*)())entry;
-            task_entry();
-        } else {
-            bios_putstr("\n\rFailed to load task!");
-        }
+        // uint64_t entry = load_task_img(task_name);
+        // if (entry) {
+        //     void (*task_entry)() = (void (*)())entry;
+        //     task_entry();
+        // } else {
+        //     bios_putstr("\n\rFailed to load task!");
+        // }
 
         // If you do non-preemptive scheduling, it's used to surrender control
         do_scheduler();
