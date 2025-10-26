@@ -281,6 +281,8 @@ static void init_pcb(void)
     char task_name[][32] = {
         "print1",
         "print2",
+        "lock1",
+        "lock2",
         "fly",
     };
 
@@ -292,7 +294,7 @@ static void init_pcb(void)
     pid0_pcb.cursor_x = 0;
     pid0_pcb.cursor_y = 0;
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 5; i++)
     {
         uint64_t entry = load_task_img(task_name[i]);
         if (!entry)

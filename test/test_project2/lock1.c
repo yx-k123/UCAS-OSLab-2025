@@ -43,7 +43,7 @@ int main(void)
 
         sys_mutex_release(mutex_id);
 
-        // sys_yield();
+        sys_yield();
     }
 
     return 0;

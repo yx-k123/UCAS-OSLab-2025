@@ -78,9 +78,11 @@ static inline void init_list_head(list_head *list)
     list->prev = list;
 }
 
+// list_entry is used to get the struct for this entry.
 #define list_entry(ptr, type, member) \
     ((type *)((char *)(ptr)-offsetof(type, member)))
 
+// offsetof is used to get the offset of the member in a struct.
 #define offsetof(type, member) ((size_t) & ((type *)0)->member)
 
 #endif
