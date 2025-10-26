@@ -50,7 +50,7 @@ ENDPROC(disable_interrupt)
 // NOTE: the address of previous pcb in a0
 // NOTE: the address of next pcb in a1
 ENTRY(switch_to)
-  // 保存 prev 的内核上下文到“其内核栈”
+  // 保存 prev 的内核上下文到其内核栈
   addi sp, sp, -(SWITCH_TO_SIZE)
   sd ra, SWITCH_TO_RA(sp)
   sd s0, SWITCH_TO_S0(sp)

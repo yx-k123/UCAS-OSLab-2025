@@ -6,6 +6,19 @@
 
 extern task_info_t tasks[TASK_MAXNUM];
 
+static void *my_memmove(void *dst, const void *src, size_t n)
+{
+    unsigned char *d = (unsigned char *)dst;
+    const unsigned char *s = (const unsigned char *)src;
+    if (d == s || n == 0) return dst;
+    if (d < s) {
+        for (size_t i = 0; i < n; i++) d[i] = s[i];
+    } else {
+        for (size_t i = n; i != 0; i--) d[i - 1] = s[i - 1];
+    }
+    return dst;
+}
+
 uint64_t load_task_img(char *taskname)
 {   
     /**
@@ -19,7 +32,7 @@ uint64_t load_task_img(char *taskname)
             bios_putstr(tasks[i].name);
             bios_putstr("\n\r");
 
-            int task_entry = TASK_MEM_BASE + TASK_SIZE * i;
+            uint64_t task_entry = TASK_MEM_BASE + TASK_SIZE * i;
 
             int block_id = tasks[i].offset / SECTOR_SIZE;
             int inblk_off  = tasks[i].offset % SECTOR_SIZE;
@@ -31,8 +44,10 @@ uint64_t load_task_img(char *taskname)
                 bios_putstr("\n\rFailed to load task!");
                 return 0;
             }
-
-            return task_entry + inblk_off;
+            if (inblk_off != 0) {
+                my_memmove((void *)task_entry,(void *)(task_entry + inblk_off),tasks[i].size);
+            }
+            return task_entry;
         }
     }
 

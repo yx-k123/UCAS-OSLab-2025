@@ -340,7 +340,7 @@ int main(void)
     // Init task information (〃'▽'〃)
     init_task_info();
 
-    print_task_names();
+    // print_task_names();
 
     // Output 'Hello OS!', bss check result and OS version
     char output_str[] = "bss check: _ version: _\n\r";

@@ -72,6 +72,6 @@ void do_unblock(list_node_t *pcb_node)
     // TODO: [p2-task2] unblock the `pcb` from the block queue
     pcb_t *pcb = list_entry(pcb_node, pcb_t, list);                         // get pcb from pcb_node
     pcb->status = TASK_READY;                                               // change status to READY
-    list_add_tail(pcb_node, &ready_queue);                   // add to ready_queue
     list_del(pcb_node);                                              // remove from block queue
+    list_add_tail(pcb_node, &ready_queue);                   // add to ready_queue
 }
