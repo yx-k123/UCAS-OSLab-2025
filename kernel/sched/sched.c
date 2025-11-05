@@ -32,22 +32,22 @@ void do_scheduler(void)
     // TODO: [p2-task1] Modify the current_running pointer.
     check_sleeping();
     pcb_t *prev_running = current_running; 
+
     if (!list_empty(&ready_queue)) {
         list_node_t *next_node = ready_queue.next;
-        list_del(next_node);
         current_running = list_entry(next_node, pcb_t, list);
         if (prev_running->status == TASK_RUNNING) {
             prev_running->status = TASK_READY;
             list_add_tail(&prev_running->list, &ready_queue);
         }
         current_running->status = TASK_RUNNING;
+        list_del(next_node);
     } else {
         current_running = &pid0_pcb;
     }
 
     // TODO: [p2-task1] switch_to current_running
     switch_to(prev_running, current_running);
-
 }
 
 void do_sleep(uint32_t sleep_time)
@@ -57,6 +57,10 @@ void do_sleep(uint32_t sleep_time)
     // 1. block the current_running
     // 2. set the wake up time for the blocked task
     // 3. reschedule because the current_running is blocked.
+    current_running->status = TASK_BLOCKED;
+    list_add_tail(&current_running->list, &sleep_queue);
+    current_running->wakeup_time = get_timer() + sleep_time;
+    do_scheduler();
 }
 
 void do_block(list_node_t *pcb_node, list_head *queue)
