@@ -283,17 +283,13 @@ static void init_pcb(void)
 {
     /* TODO: [p2-task1] load needed tasks and init their corresponding PCB */
     char task_name[][32] = {
-        // "print1",
-        // "print2",
-        // "lock1",
-        // "lock2",
-        // "sleep",
-        // "timer",
-        "fly1",
-        "fly2",
-        "fly3",
-        "fly4",
-        "fly5",
+        "print1",
+        "print2",
+        "lock1",
+        "lock2",
+        "sleep",
+        "timer",
+        "fly",
     };
 
     int task_idx = 0;
