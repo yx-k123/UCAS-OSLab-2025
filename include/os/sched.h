@@ -85,6 +85,11 @@ typedef struct pcb
     /* time(seconds) to wake up sleeping PCB */
     uint64_t wakeup_time;
 
+    // /*
+    int flag_position;
+    int time_slice;
+    int time_slice_remain;
+    int if_switch;
 } pcb_t;
 
 /* ready queue to run */
@@ -108,6 +113,8 @@ void do_sleep(uint32_t);
 void do_block(list_node_t *, list_head *queue);
 void do_unblock(list_node_t *);
 
+void do_set_sche_workload(int length);
+int calculate_time_slice(int position, int flag);
 /************************************************************/
 /* Do not touch this comment. Reserved for future projects. */
 /************************************************************/

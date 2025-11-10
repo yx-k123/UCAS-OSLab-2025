@@ -283,13 +283,17 @@ static void init_pcb(void)
 {
     /* TODO: [p2-task1] load needed tasks and init their corresponding PCB */
     char task_name[][32] = {
-        "print1",
-        "print2",
-        "lock1",
-        "lock2",
-        "sleep",
-        "timer",
-        "fly",
+        // "print1",
+        // "print2",
+        // "lock1",
+        // "lock2",
+        // "sleep",
+        // "timer",
+        "fly1",
+        "fly2",
+        "fly3",
+        "fly4",
+        "fly5",
     };
 
     int task_idx = 0;
@@ -299,6 +303,11 @@ static void init_pcb(void)
     pid0_pcb.status = TASK_RUNNING;
     pid0_pcb.cursor_x = 0;
     pid0_pcb.cursor_y = 0;
+
+    pid0_pcb.flag_position = 0;
+    pid0_pcb.time_slice = 1;
+    pid0_pcb.time_slice_remain = 0;
+    pid0_pcb.if_switch = 0;
 
     for (int i = 0; i < sizeof(task_name) / sizeof(task_name[0]); i++)
     {
@@ -321,6 +330,12 @@ static void init_pcb(void)
         pcb[i + 1].status = TASK_READY;
         pcb[i + 1].cursor_x = 0;
         pcb[i + 1].cursor_y = 0;
+
+        pcb[i + 1].flag_position = 10 * (i + 1);
+        pcb[i + 1].time_slice = 1;
+        pcb[i + 1].time_slice_remain = 0;
+        pcb[i + 1].if_switch = 0;
+
         init_list_head(&pcb[i + 1].list);
 
         init_pcb_stack(kernel_stack, user_stack, entry, &pcb[i + 1]);
@@ -344,6 +359,7 @@ static void init_syscall(void)
     syscall[SYSCALL_LOCK_INIT] = (long (*)())do_mutex_lock_init;
     syscall[SYSCALL_LOCK_ACQ] = (long (*)())do_mutex_lock_acquire;
     syscall[SYSCALL_LOCK_RELEASE] = (long (*)())do_mutex_lock_release;
+    syscall[SYSCALL_SET_SCHED_WORKLOAD] = (long (*)())do_set_sche_workload;
 }
 /************************************************************/
 

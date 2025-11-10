@@ -102,7 +102,7 @@ void sys_sleep(uint32_t time)
 }
 
 void sys_set_sche_workload(int length) {
-    
+    invoke_syscall(SYSCALL_SET_SCHED_WORKLOAD, (long)length, IGNORE, IGNORE, IGNORE, IGNORE);
 }
 
 /************************************************************/
