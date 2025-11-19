@@ -1,6 +1,8 @@
 #ifndef SMP_H
 #define SMP_H
 
+#include <type.h>
+
 #define NR_CPUS 2
 extern void smp_init();
 extern void wakeup_other_hart();
