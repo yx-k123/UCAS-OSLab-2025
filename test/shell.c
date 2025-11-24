@@ -29,9 +29,51 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <string.h>
-#include <ctype.h>
 
 #define SHELL_BEGIN 20
+#define BUFF_SIZE 128
+#define MAX_ARG_NUM 16
+#define MAX_ARG_LEN 32
+char argv[MAX_ARG_NUM][MAX_ARG_LEN];
+
+int isspace(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+int atoi(const char *str) {
+    int res = 0;
+    int i = 0;
+    while (str[i] >= '0' && str[i] <= '9') {
+        res = res * 10 + (str[i] - '0');
+        i++;
+    }
+    return res;
+}
+
+int parse_args(const char *buff) {
+    int argc = 0;
+    int i = 0;
+    for(int j=0;j<MAX_ARG_NUM;j++){
+        argv[j][0] = '\0';
+    }
+    while (*buff) {
+        while (isspace(*buff)) {
+            buff++;
+        } 
+
+        if (*buff == '\0') break;
+
+        if (argc >= MAX_ARG_NUM) break;
+
+        i = 0;
+        while (*buff && !isspace(*buff) && i < MAX_ARG_LEN - 1) {
+            argv[argc][i++] = *buff++;
+        }
+        argv[argc][i] = '\0';
+        argc++;
+    }
+    return argc;
+}
 
 int main(void)
 {
@@ -39,14 +81,75 @@ int main(void)
     printf("------------------- COMMAND -------------------\n");
     printf("> root@UCAS_OS: ");
 
+    char buff[BUFF_SIZE] = {0};
+    int idx = 0;
+    int temp = 0;
+    int end = 0;
     while (1)
     {
         // TODO [P3-task1]: call syscall to read UART port
-        
+        while ((temp = sys_getchar()) == -1);
+    
         // TODO [P3-task1]: parse input
         // note: backspace maybe 8('\b') or 127(delete)
+        if (temp == '\b' || temp == 127) {
+            if (idx > 0) {
+                sys_write("\b");
+                sys_reflush();
+                buff[--idx] = '\0';
+            }
+        } else if (temp == '\n' || temp == '\r') {
+            sys_write("\n");
+            sys_reflush();
+            end = 1;
+            buff[idx] = '\0';
+            idx = 0;
+        } else {
+            buff[idx++] = (char)temp;
+            sys_write((char[]){(char)temp, '\0'});
+            sys_reflush();
+        }
+
+        if (!end) {
+            continue;
+        }
+        end = 0;
 
         // TODO [P3-task1]: ps, exec, kill, clear    
+        int argc = parse_args(buff);
+        if (argc == 0) {
+            printf("> root@UCAS_OS: ");
+            continue;
+        } 
+
+        if (strcmp(argv[0], "ps") == 0) {
+            sys_ps();
+        } else if (strcmp(argv[0], "clear") == 0) {
+            sys_clear();
+            sys_move_cursor(0, SHELL_BEGIN);
+            printf("------------------- COMMAND -------------------\n");
+        } else if (strcmp(argv[0], "exec") == 0) {
+            if (argc < 2) {
+                printf("Usage: exec [task_name]\n");
+            } else {
+                char *args[MAX_ARG_NUM];
+                for (int i = 0; i < argc - 1 && i < MAX_ARG_NUM; i++) {
+                    args[i] = argv[i + 1];
+                }
+                sys_exec(argv[1], argc - 1, args);
+            }
+        } else if (strcmp(argv[0], "kill") == 0) {
+            if (argc < 2) {
+                printf("Usage: kill [pid]\n");
+            } else {
+                int pid = atoi(argv[1]);
+                sys_kill(pid);
+            }
+        } else {
+            printf("Unknown command: %s\n", argv[0]);
+        }
+
+        printf("> root@UCAS_OS: ");
 
         /************************************************************/
         /* Do not touch this comment. Reserved for future projects. */

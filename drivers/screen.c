@@ -46,7 +46,17 @@ void screen_write_ch(char ch)
     }
     else if (ch == '\b' || ch == '\177')
     {	
-        // TODO: [P3] support backspace here
+        // TODO: [P3] support backspace here    
+        if (current_running->cursor_x != 0) {
+            current_running->cursor_x--;
+            new_screen[SCREEN_LOC(current_running->cursor_x, current_running->cursor_y)] = ' ';
+        } else {
+            current_running->cursor_x = SCREEN_WIDTH - 1;
+            if (current_running->cursor_y != 0) {
+                current_running->cursor_y--;
+                new_screen[SCREEN_LOC(current_running->cursor_x, current_running->cursor_y)] = ' ';
+            }
+        }
     }
     else
     {

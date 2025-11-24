@@ -33,7 +33,7 @@ extern void ret_from_exception();
 
 // Task info array
 task_info_t tasks[TASK_MAXNUM];
-
+int task_num = 0;
 
 static void init_jmptab(void)
 {
@@ -250,9 +250,9 @@ static void batch_run(void)
 
 
 /************************************************************/
-static void init_pcb_stack(
+void init_pcb_stack(
     ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point,
-    pcb_t *pcb)
+    pcb_t *pcb, int argc, char **argv)
 {
      /* TODO: [p2-task3] initialization of registers on kernel stack
       * HINT: sp, ra, sepc, sstatus
@@ -263,9 +263,11 @@ static void init_pcb_stack(
         (regs_context_t *)(kernel_stack - sizeof(regs_context_t));
     pt_regs->regs[1] = entry_point; // repc
     pt_regs->regs[2] = user_stack;  // sp
-    pt_regs->regs[4] = (uint64_t)pcb;         // tp
+    pt_regs->regs[4] = (reg_t)pcb;         // tp
     pt_regs->sepc = entry_point;
     pt_regs->sstatus = SR_SPIE; 
+    pt_regs->regs[10] = argc;
+    pt_regs->regs[11] = (reg_t)argv;
 
     /* TODO: [p2-task1] set sp to simulate just returning from switch_to
      * NOTE: you should prepare a stack, and push some values to
@@ -273,7 +275,7 @@ static void init_pcb_stack(
      */
     switchto_context_t *pt_switchto =
         (switchto_context_t *)((ptr_t)pt_regs - sizeof(switchto_context_t));
-    pt_switchto->regs[0] = (uint64_t)ret_from_exception; // ra
+    pt_switchto->regs[0] = (ptr_t)ret_from_exception; // ra
     pt_switchto->regs[1] = kernel_stack;
     pcb->kernel_sp = (ptr_t)pt_switchto;
     pcb->user_sp = user_stack;
@@ -282,17 +284,7 @@ static void init_pcb_stack(
 static void init_pcb(void)
 {
     /* TODO: [p2-task1] load needed tasks and init their corresponding PCB */
-    char task_name[][32] = {
-        "print1",
-        "print2",
-        "lock1",
-        "lock2",
-        "sleep",
-        "timer",
-        "fly",
-    };
 
-    int task_idx = 0;
     pid0_pcb.pid = 0;
     pid0_pcb.user_sp = (ptr_t)pid0_stack;
     pid0_pcb.kernel_sp = (ptr_t)pid0_stack;
@@ -300,31 +292,8 @@ static void init_pcb(void)
     pid0_pcb.cursor_x = 0;
     pid0_pcb.cursor_y = 0;
 
-    for (int i = 0; i < sizeof(task_name) / sizeof(task_name[0]); i++)
-    {
-        uint64_t entry = load_task_img(task_name[i]);
-        if (!entry)
-        {
-            bios_putstr("> [INIT] Load task ");
-            bios_putstr(task_name[i]);
-            bios_putstr(" failed.\n");
-            continue;
-        }
-        bios_putstr("> [INIT] Load task ");
-        bios_putstr(task_name[i]);
-        bios_putstr(" succeeded.\n");
-
-        ptr_t user_stack = allocUserPage(1) + PAGE_SIZE;
-        ptr_t kernel_stack = allocKernelPage(1) + PAGE_SIZE;
-
-        pcb[i + 1].pid = i + 1;
-        pcb[i + 1].status = TASK_READY;
-        pcb[i + 1].cursor_x = 0;
-        pcb[i + 1].cursor_y = 0;
-        init_list_head(&pcb[i + 1].list);
-
-        init_pcb_stack(kernel_stack, user_stack, entry, &pcb[i + 1]);
-        list_add_tail(&pcb[i + 1].list, &ready_queue);
+    for (int i = 0; i < TASK_MAXNUM; i++) {
+        pcb[i].status = TASK_EXITED;
     }
 
     /* TODO: [p2-task1] remember to initialize 'current_running' */
@@ -344,6 +313,14 @@ static void init_syscall(void)
     syscall[SYSCALL_LOCK_INIT] = (long (*)())do_mutex_lock_init;
     syscall[SYSCALL_LOCK_ACQ] = (long (*)())do_mutex_lock_acquire;
     syscall[SYSCALL_LOCK_RELEASE] = (long (*)())do_mutex_lock_release;
+    syscall[SYSCALL_GETPID]         = (long (*)())do_getpid;
+    syscall[SYSCALL_KILL]           = (long (*)())do_kill;
+    syscall[SYSCALL_PS]             = (long (*)())do_process_show;
+    syscall[SYSCALL_WAITPID]        = (long (*)())do_waitpid;
+    syscall[SYSCALL_EXEC]           = (long (*)())do_exec;
+    syscall[SYSCALL_EXIT]           = (long (*)())do_exit;
+    syscall[SYSCALL_READCH]         = (long (*)())bios_getchar;
+    syscall[SYSCALL_CLEAR]          = (long (*)())screen_clear;
 }
 /************************************************************/
 
@@ -395,58 +372,8 @@ int main(void)
     // Infinite while loop, where CPU stays in a low-power state (QAQQQQQQQQQQQ)
     while (1)
     {   
-        // bios_putstr("\n\rEnter task name: "); 
-
-        // char task_name[32];
-        // int task_name_len = 0;
-
-        // while (1) {
-        //     char ch = bios_getchar();
-        //     if (ch == '\r' || ch == '\n') {
-        //         task_name[task_name_len] = '\0';
-        //         break;
-        //     } else if ((ch == 127) && task_name_len > 0) {
-        //         task_name_len--;
-        //         bios_putchar('\b');
-        //         bios_putchar(' ');
-        //         bios_putchar('\b');
-        //     } else if (ch >= ' ' && ch <= '~' && task_name_len < 31) {
-        //         task_name[task_name_len++] = ch;
-        //         bios_putchar(ch);
-        //     }
-        // }
-
-        // if (!strcmp(task_name, "ls")) {
-        //     bios_putstr("\n\r");
-        //     print_task_names();
-        //     continue;
-        // }
-        // if (!strcmp(task_name, "batch-write")) {
-        //     bios_putstr("\n\r");
-        //     batch_write();
-        //     continue;
-        // }
-        // if (!strcmp(task_name, "batch-run")) {
-        //     bios_putstr("\n\r");
-        //     batch_run();
-        //     continue;
-        // }
-
-        // uint64_t entry = load_task_img(task_name);
-        // if (entry) {
-        //     void (*task_entry)() = (void (*)())entry;
-        //     task_entry();
-        // } else {
-        //     bios_putstr("\n\rFailed to load task!");
-        // }
-
-        // If you do non-preemptive scheduling, it's used to surrender control
-        // do_scheduler();
-
-        // If you do preemptive scheduling, they're used to enable CSR_SIE and wfi
         enable_preempt();
         // asm volatile("wfi");
-    
     }
     return 0;
 }

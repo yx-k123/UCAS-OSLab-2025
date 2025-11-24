@@ -69,9 +69,9 @@ int do_mutex_lock_init(int key)
 
 void do_mutex_lock_acquire(int mlock_idx)
 {
-    /* TODO: [p2-task2] acquire mutex lock */
     mutex_lock_t *mlock = &mlocks[mlock_idx];
     if (spin_lock_try_acquire(&mlock->lock)) {
+        mlock->pid = current_running->pid;
         return;
     } else {
         current_running->status = TASK_BLOCKED;
@@ -82,12 +82,16 @@ void do_mutex_lock_acquire(int mlock_idx)
 
 void do_mutex_lock_release(int mlock_idx)
 {
-    /* TODO: [p2-task2] release mutex lock */
     mutex_lock_t *mlock = &mlocks[mlock_idx];
+    if (mlock->pid != current_running->pid) {
+        return;
+    }
+    mlock->pid = -1;  
     if (list_empty(&mlock->block_queue)) {
         spin_lock_release(&mlock->lock);
     } else {
         list_node_t *next_node = mlock->block_queue.next;
         do_unblock(next_node);
+        mlock->pid = ((pcb_t *)list_entry(next_node, pcb_t, list))->pid;
     }
 }
