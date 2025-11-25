@@ -6,10 +6,10 @@
 ENTRY(_start)
 
     /* TODO: [p1-task3] setup C runtime environment for the user program */
-    addi sp, sp, -16 
-    sd s0, 8(sp)            // save s0 = frame pointer
-    sd ra, (sp)             // save ra = return address
-    addi s0, sp, 16         // set frame pointer
+    # addi sp, sp, -16 
+    # sd s0, 8(sp)            // save s0 = frame pointer
+    # sd ra, (sp)             // save ra = return address
+    # addi s0, sp, 16         // set frame pointer
 
     /* clear .bss section */
     la t0, __bss_start         // bss start address

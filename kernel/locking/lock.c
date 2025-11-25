@@ -170,3 +170,65 @@ void do_barrier_destroy(int bar_idx){
     }
     spin_lock_release(&barriers[bar_idx].lock);
 }
+
+
+void init_conditions(void){
+    for (int i = 0; i < CONDITION_NUM; i++) {
+        conditions[i].key = -1;
+        conditions[i].valid = 0;
+        init_list_head(&conditions[i].wait_queue);
+    }
+}
+
+int do_condition_init(int key){
+    for (int i = 0; i < CONDITION_NUM; i++) {
+        if (conditions[i].key == key && conditions[i].valid == 1) {
+            return i;
+        }
+    }
+
+    for (int i = 0; i < CONDITION_NUM; i++) {
+        if (conditions[i].valid == 0) {
+            conditions[i].key = key;
+            conditions[i].valid = 1;
+            init_list_head(&conditions[i].wait_queue);
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+void do_condition_wait(int cond_idx, int mutex_idx){
+    current_running->status = TASK_BLOCKED;
+    do_block(&current_running->list, &conditions[cond_idx].wait_queue);
+    do_mutex_lock_release(mutex_idx);
+    do_scheduler();
+}
+
+void do_condition_signal(int cond_idx){
+    if (list_empty(&conditions[cond_idx].wait_queue)) {
+        return;
+    } else {
+        list_node_t* next_node = conditions[cond_idx].wait_queue.next;
+        do_unblock(next_node);
+    }
+}
+
+void do_condition_broadcast(int cond_idx){
+    list_node_t* p, *next;
+    for(p = conditions[cond_idx].wait_queue.next; p != &conditions[cond_idx].wait_queue; p = next){
+        next = p->next;
+        do_unblock(p);
+    }
+}
+
+void do_condition_destroy(int cond_idx){
+    list_node_t* p, *next;
+    for(p = conditions[cond_idx].wait_queue.next; p != &conditions[cond_idx].wait_queue; p = next){
+        next = p->next;
+        do_unblock(p);
+    }
+    conditions[cond_idx].valid = 0;
+    conditions[cond_idx].key = -1;
+}

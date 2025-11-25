@@ -352,6 +352,12 @@ int main(void)
     init_locks();
     printk("> [INIT] Lock mechanism initialization succeeded.\n");
 
+    init_barriers();
+    printk("> [INIT] Barrier initialization succeeded.\n");
+
+    init_conditions();
+    printk("> [INIT] Condition variable initialization succeeded.\n");
+
     // Init interrupt (^_^)
     init_exception();
     printk("> [INIT] Interrupt processing initialization succeeded.\n");
