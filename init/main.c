@@ -321,6 +321,9 @@ static void init_syscall(void)
     syscall[SYSCALL_EXIT]           = (long (*)())do_exit;
     syscall[SYSCALL_READCH]         = (long (*)())bios_getchar;
     syscall[SYSCALL_CLEAR]          = (long (*)())screen_clear;
+    syscall[SYSCALL_BARR_INIT]      = (long (*)())do_barrier_init;
+    syscall[SYSCALL_BARR_WAIT]      = (long (*)())do_barrier_wait;
+    syscall[SYSCALL_BARR_DESTROY]   = (long (*)())do_barrier_destroy;
 }
 /************************************************************/
 

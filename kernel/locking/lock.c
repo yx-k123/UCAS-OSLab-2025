@@ -4,6 +4,8 @@
 #include <atomic.h>
 
 mutex_lock_t mlocks[LOCK_NUM];
+barrier_t barriers[BARRIER_NUM];
+condition_t conditions[CONDITION_NUM];
 
 void init_locks(void)
 {
@@ -24,20 +26,23 @@ void spin_lock_init(spin_lock_t *lock)
 int spin_lock_try_acquire(spin_lock_t *lock)
 {
     /* TODO: [p2-task2] try to acquire spin lock */
-    if (lock->status == UNLOCKED) {
-        lock->status = LOCKED;
-        return 1;
-    }
-    return 0;
+    // if (lock->status == UNLOCKED) {
+    //     lock->status = LOCKED;
+    //     return 1;
+    // }
+    return atomic_swap(LOCKED, (ptr_t)&lock->status) == UNLOCKED;
 }
 
 void spin_lock_acquire(spin_lock_t *lock)
 {
     /* TODO: [p2-task2] acquire spin lock */
-    while (lock->status == LOCKED) {
+    // while (lock->status == LOCKED) {
+    //     // busy wait
+    // }
+    // lock->status = LOCKED;
+    while (atomic_swap(LOCKED, (ptr_t)&lock->status) == LOCKED) {
         // busy wait
     }
-    lock->status = LOCKED;
 }
 
 void spin_lock_release(spin_lock_t *lock)
@@ -94,4 +99,74 @@ void do_mutex_lock_release(int mlock_idx)
         list_node_t* next_node = mlock->block_queue.next;
         do_unblock(next_node);
     }
+}
+
+void init_barriers(void){
+    for (int i = 0; i < BARRIER_NUM; i++) {
+        barriers[i].count = 0;
+        barriers[i].goal = 0;
+        barriers[i].valid = 0;
+        barriers[i].key = -1;
+        init_list_head(&barriers[i].wait_queue);
+        spin_lock_init(&barriers[i].lock);
+    }
+}
+
+int do_barrier_init(int key, int goal){
+    for (int i = 0; i < BARRIER_NUM; i++) {
+        if (barriers[i].key == key && barriers[i].valid == 1) {
+            return i;
+        }
+    }
+
+    for (int i = 0; i < BARRIER_NUM; i++) {
+        if (barriers[i].valid == 0) {
+            barriers[i].key = key;
+            barriers[i].goal = goal;
+            barriers[i].count = 0;
+            barriers[i].valid = 1;
+            init_list_head(&barriers[i].wait_queue);
+            spin_lock_init(&barriers[i].lock);
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+void do_barrier_wait(int bar_idx){
+    spin_lock_acquire(&barriers[bar_idx].lock);
+    barriers[bar_idx].count++;
+    if (barriers[bar_idx].count == barriers[bar_idx].goal) {
+        // 唤醒所有等待线程
+        list_node_t* p, *next;
+        for(p = barriers[bar_idx].wait_queue.next; p != &barriers[bar_idx].wait_queue; p = next){
+            next = p->next;
+            do_unblock(p);
+        }
+        barriers[bar_idx].count = 0;
+    } else {
+        // 阻塞当前线程
+        current_running->status = TASK_BLOCKED;
+        do_block(&current_running->list, &barriers[bar_idx].wait_queue);
+        spin_lock_release(&barriers[bar_idx].lock);
+        do_scheduler();
+        return;
+    }
+    spin_lock_release(&barriers[bar_idx].lock);
+}
+
+void do_barrier_destroy(int bar_idx){
+    spin_lock_acquire(&barriers[bar_idx].lock);
+    barriers[bar_idx].valid = 0;
+    barriers[bar_idx].key = -1;
+    barriers[bar_idx].count = 0;
+    barriers[bar_idx].goal = 0;
+    // 唤醒所有等待线程
+    list_node_t* p, *next;
+    for(p = barriers[bar_idx].wait_queue.next; p != &barriers[bar_idx].wait_queue; p = next){
+        next = p->next;
+        do_unblock(p);
+    }
+    spin_lock_release(&barriers[bar_idx].lock);
 }

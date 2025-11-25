@@ -67,9 +67,16 @@ void do_mutex_lock_release(int mlock_idx);
 typedef struct barrier
 {
     // TODO [P3-TASK2 barrier]
+    int count;
+    int goal;
+    list_head wait_queue;
+    spin_lock_t lock;
+    int valid;  // 1:used 0:unused
+    int key;
 } barrier_t;
 
 #define BARRIER_NUM 16
+extern barrier_t barriers[BARRIER_NUM];
 
 void init_barriers(void);
 int do_barrier_init(int key, int goal);
@@ -79,9 +86,11 @@ void do_barrier_destroy(int bar_idx);
 typedef struct condition
 {
     // TODO [P3-TASK2 condition]
+
 } condition_t;
 
 #define CONDITION_NUM 16
+extern condition_t conditions[CONDITION_NUM];
 
 void init_conditions(void);
 int do_condition_init(int key);
