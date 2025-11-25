@@ -18,19 +18,3 @@ ptr_t allocUserPage(int numPage)
     userMemCurr = ret + numPage * PAGE_SIZE;
     return ret;
 }
-
-void freeKernelPage(ptr_t addr, int num)
-{
-    ptr_t expected_addr = kernMemCurr - num * PAGE_SIZE;
-    if (addr == expected_addr) {
-        kernMemCurr = addr; 
-    }
-}
-
-void freeUserPage(ptr_t addr, int num)
-{
-    ptr_t expected_addr = userMemCurr - num * PAGE_SIZE;
-    if (addr == expected_addr) {
-        userMemCurr = addr; 
-    }
-}

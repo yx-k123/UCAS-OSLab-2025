@@ -64,6 +64,8 @@ int main(int argc, char *argv[])
     int handle1 = sys_mutex_init(LOCK1_KEY);
     int handle2 = sys_mutex_init(LOCK2_KEY);
 
+    printf("Handles: %d %d\n", handle1, handle2);
+
     char buf1[BUF_LEN];
     char buf2[BUF_LEN];
     assert(itoa(handle1, buf1, BUF_LEN, 10) != -1);

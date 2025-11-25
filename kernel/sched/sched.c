@@ -52,10 +52,6 @@ void do_scheduler(void)
 
     // TODO: [p2-task1] switch_to current_running
     switch_to(prev_running, current_running);
-
-    if (prev_running->status == TASK_EXITED) {
-        release_resource(prev_running);
-    }
 }
 
 void do_sleep(uint32_t sleep_time)
@@ -95,9 +91,11 @@ pid_t do_exec(char *name, int argc, char **argv)
         if (pcb[i].status == TASK_EXITED) {
             index = i;
             break;
-        } else {
-            return -1;
-        }
+        } 
+    }
+
+    if (index == -1) {
+        return -1;
     }
 
     uint64_t entry_point;
@@ -113,6 +111,10 @@ pid_t do_exec(char *name, int argc, char **argv)
     pcb[index].status = TASK_READY;
     pcb[index].cursor_x = 0;
     pcb[index].cursor_y = 0;
+    pcb[index].wait_list.next = &pcb[index].wait_list;
+    pcb[index].wait_list.prev = &pcb[index].wait_list;
+    pcb[index].list.next = NULL;
+    pcb[index].list.prev = NULL;
 
     user_sp -= sizeof(char*) * argc;
     char **argv_user = (char **)user_sp;
@@ -136,6 +138,7 @@ pid_t do_exec(char *name, int argc, char **argv)
 void do_exit(void)
 {
     current_running->status = TASK_EXITED;
+    release_resource(current_running);
     do_scheduler();
 }
 
@@ -157,6 +160,7 @@ int do_waitpid(pid_t pid)
         if(pcb[i].pid == pid){
             if(pcb[i].status != TASK_EXITED){
                 do_block(&(current_running->list), &(pcb[i].wait_list));
+                do_scheduler();
                 return pid;
             }
         }
@@ -193,7 +197,9 @@ void release_resource(pcb_t *pcb)
         next = p->next;
         do_unblock(p);
     }
+}
 
-    freeKernelPage((ptr_t)(pcb->kernel_sp - PAGE_SIZE), 1);
-    freeUserPage((ptr_t)(pcb->user_sp - PAGE_SIZE), 1);
+int do_getpid()
+{
+    return current_running->pid;
 }

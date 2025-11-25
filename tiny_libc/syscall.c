@@ -63,8 +63,7 @@ int sys_mutex_init(int key)
     /* TODO: [p2-task2] call call_jmptab to implement sys_mutex_init */
     // call_jmptab(MUTEX_INIT, (long)key, IGNORE, IGNORE, IGNORE, IGNORE);
     /* TODO: [p2-task3] call invoke_syscall to implement sys_mutex_init */
-    invoke_syscall(SYSCALL_LOCK_INIT, (long)key, IGNORE, IGNORE, IGNORE, IGNORE);
-    return 0;
+    return invoke_syscall(SYSCALL_LOCK_INIT, (long)key, IGNORE, IGNORE, IGNORE, IGNORE);
 }
 
 void sys_mutex_acquire(int mutex_idx)

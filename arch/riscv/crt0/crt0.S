@@ -24,14 +24,15 @@ enter_main:
     call main
 
     /* TODO: [p1-task3] finish task and return to the kernel, replace this in p3-task2! */
-finish_task:
-    ld ra, (sp)            // restore return address
-    ld s0, 8(sp)           // restore frame pointer
-    addi sp, sp, 16        // restore stack pointer
-    jr ra                  // return to caller
+# finish_task:
+#     ld ra, (sp)            // restore return address
+#     ld s0, 8(sp)           // restore frame pointer
+#     addi sp, sp, 16        // restore stack pointer
+#     jr ra                  // return to caller
 
     /************************************************************/
     /* TODO: [P3] call sys_exit */
+    call sys_exit
     /************************************************************/
 // while(1) loop, unreachable here
 loop:

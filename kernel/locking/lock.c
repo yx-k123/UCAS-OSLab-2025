@@ -90,8 +90,8 @@ void do_mutex_lock_release(int mlock_idx)
     if (list_empty(&mlock->block_queue)) {
         spin_lock_release(&mlock->lock);
     } else {
-        list_node_t *next_node = mlock->block_queue.next;
+        mlock->pid = list_entry(mlock->block_queue.next, pcb_t, list)->pid;
+        list_node_t* next_node = mlock->block_queue.next;
         do_unblock(next_node);
-        mlock->pid = ((pcb_t *)list_entry(next_node, pcb_t, list))->pid;
     }
 }

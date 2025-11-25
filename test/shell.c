@@ -53,7 +53,7 @@ int atoi(const char *str) {
 int parse_args(const char *buff) {
     int argc = 0;
     int i = 0;
-    for(int j=0;j<MAX_ARG_NUM;j++){
+    for(int j = 0; j < MAX_ARG_NUM; j++){
         argv[j][0] = '\0';
     }
     while (*buff) {
@@ -130,13 +130,25 @@ int main(void)
             printf("------------------- COMMAND -------------------\n");
         } else if (strcmp(argv[0], "exec") == 0) {
             if (argc < 2) {
-                printf("Usage: exec [task_name]\n");
+                printf("Usage: exec [task_name] [args...] [&]\n");
             } else {
+                int has_amp = 0;
+                if (strcmp(argv[argc-1], "&") == 0) {
+                    has_amp = 1;
+                    argc--; 
+                }
                 char *args[MAX_ARG_NUM];
                 for (int i = 0; i < argc - 1 && i < MAX_ARG_NUM; i++) {
                     args[i] = argv[i + 1];
                 }
-                sys_exec(argv[1], argc - 1, args);
+                pid_t pid = sys_exec(argv[1], argc - 1, args);
+                if (pid > 0) {
+                    if (!has_amp) {
+                        sys_waitpid(pid);
+                    }
+                } else {
+                    printf("Failed to exec %s\n", argv[1]);
+                }
             }
         } else if (strcmp(argv[0], "kill") == 0) {
             if (argc < 2) {

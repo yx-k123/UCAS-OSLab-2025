@@ -28,9 +28,9 @@ uint64_t load_task_img(char *taskname)
      */
     for (int i = 0; i < TASK_MAXNUM; ++i) {
         if (strcmp(tasks[i].name, taskname) == 0) {
-            bios_putstr("\n\rLoading task: ");
-            bios_putstr(tasks[i].name);
-            bios_putstr("\n\r");
+            // bios_putstr("\n\rLoading task: ");
+            // bios_putstr(tasks[i].name);
+            // bios_putstr("\n\r");
 
             uint64_t task_entry = TASK_MEM_BASE + TASK_SIZE * i;
 

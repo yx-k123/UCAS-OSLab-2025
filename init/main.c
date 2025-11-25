@@ -370,6 +370,8 @@ int main(void)
     //   and then execute them.
 
     // Infinite while loop, where CPU stays in a low-power state (QAQQQQQQQQQQQ)
+    do_exec("shell", 0, NULL);
+
     while (1)
     {   
         enable_preempt();
