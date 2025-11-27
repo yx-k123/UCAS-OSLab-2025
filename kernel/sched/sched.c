@@ -100,6 +100,7 @@ pid_t do_exec(char *name, int argc, char **argv)
 
     uint64_t entry_point;
     entry_point = load_task_img(name);
+
     if (entry_point == 0) {
         return -1;
     }
@@ -118,6 +119,7 @@ pid_t do_exec(char *name, int argc, char **argv)
 
     user_sp -= sizeof(char*) * argc;
     char **argv_user = (char **)user_sp;
+    argv_user[argc]  = NULL;
     for(int i=argc-1; i>=0; i--){
         int len = strlen(argv[i]) + 1;
         user_sp -=len;
