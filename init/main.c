@@ -369,6 +369,9 @@ int main(void)
     init_conditions();
     printk("> [INIT] Condition variable initialization succeeded.\n");
 
+    init_mbox();
+    printk("> [INIT] Mailbox initialization succeeded.\n");
+
     // Init interrupt (^_^)
     init_exception();
     printk("> [INIT] Interrupt processing initialization succeeded.\n");

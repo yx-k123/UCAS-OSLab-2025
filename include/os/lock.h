@@ -120,6 +120,18 @@ void do_semaphore_destroy(int sema_idx);
 typedef struct mailbox
 {
     // TODO [P3-TASK2 mailbox]
+    char name[25];
+    char buffer[MAX_MBOX_LENGTH];
+    int head;
+    int tail;
+    int data_count;
+
+    int valid;
+    int ref_count;
+
+    spin_lock_t lock;
+    list_head recv_queue;
+    list_head send_queue;
 } mailbox_t;
 
 #define MBOX_NUM 16

@@ -1,11 +1,13 @@
 #include <os/lock.h>
 #include <os/sched.h>
 #include <os/list.h>
+#include <os/string.h>
 #include <atomic.h>
 
 mutex_lock_t mlocks[LOCK_NUM];
 barrier_t barriers[BARRIER_NUM];
 condition_t conditions[CONDITION_NUM];
+mailbox_t mailboxs[MBOX_NUM];
 
 void init_locks(void)
 {
@@ -224,11 +226,130 @@ void do_condition_broadcast(int cond_idx){
 }
 
 void do_condition_destroy(int cond_idx){
-    list_node_t* p, *next;
-    for(p = conditions[cond_idx].wait_queue.next; p != &conditions[cond_idx].wait_queue; p = next){
-        next = p->next;
-        do_unblock(p);
-    }
     conditions[cond_idx].valid = 0;
     conditions[cond_idx].key = -1;
+    do_condition_broadcast(cond_idx);
 }
+
+void init_mbox(){
+    for (int i = 0; i < MBOX_NUM; i++) {
+        mailboxs[i].valid = 0;
+        mailboxs[i].ref_count = 0;
+        mailboxs[i].head = 0;
+        mailboxs[i].tail = 0;
+        mailboxs[i].data_count = 0;
+        mailboxs[i].name[0] = '\0';
+
+        spin_lock_init(&mailboxs[i].lock);
+        init_list_head(&mailboxs[i].recv_queue);
+        init_list_head(&mailboxs[i].send_queue);
+    }
+}
+
+int do_mbox_open(char *name){
+    for (int i = 0; i < MBOX_NUM; i++) {
+        if (mailboxs[i].valid == 1 && strcmp(mailboxs[i].name, name) == 0) {
+            mailboxs[i].ref_count++;
+            return i;
+        }
+    }
+
+    for (int i = 0; i < MBOX_NUM; i++) {
+        if (mailboxs[i].valid == 0) {
+            mailboxs[i].valid = 1;
+            mailboxs[i].ref_count = 1;
+            strcpy(mailboxs[i].name, name);
+            mailboxs[i].head = 0;
+            mailboxs[i].tail = 0;
+            mailboxs[i].data_count = 0;
+
+            init_list_head(&mailboxs[i].recv_queue);
+            init_list_head(&mailboxs[i].send_queue);
+            spin_lock_init(&mailboxs[i].lock);
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+void do_mbox_close(int mbox_idx){
+    mailbox_t *mbox = &mailboxs[mbox_idx];
+    mbox->ref_count--;
+    if (mbox->ref_count == 0) {
+        mbox->valid = 0;
+        mbox->name[0] = '\0';
+        mbox->head = 0;
+        mbox->tail = 0;
+        mbox->data_count = 0;
+    }
+}
+
+int do_mbox_send(int mbox_idx, void * msg, int msg_length){
+    if (mbox_idx < 0 || mbox_idx >= MBOX_NUM || !mailboxs[mbox_idx].valid) {
+        return 0;
+    }
+
+    mailbox_t *mbox = &mailboxs[mbox_idx];
+    char *data = (char *)msg;
+    
+    spin_lock_acquire(&mbox->lock);
+
+    while (MAX_MBOX_LENGTH - mbox->data_count < msg_length) {
+        current_running->status = TASK_BLOCKED;
+        do_block(&current_running->list, &mbox->send_queue);
+        spin_lock_release(&mbox->lock); 
+        do_scheduler();
+        spin_lock_acquire(&mbox->lock);
+    }
+
+    for (int i = 0; i < msg_length; i++) {
+        mbox->buffer[mbox->tail] = data[i];
+        mbox->tail = (mbox->tail + 1) % MAX_MBOX_LENGTH;
+    }
+    
+    mbox->data_count += msg_length;
+
+    while (!list_empty(&mbox->recv_queue)) {
+        do_unblock(mbox->recv_queue.next);
+        break; 
+    }
+
+    spin_lock_release(&mbox->lock);
+    return msg_length;
+}
+
+int do_mbox_recv(int mbox_idx, void * msg, int msg_length){
+    if (mbox_idx < 0 || mbox_idx >= MBOX_NUM || mailboxs[mbox_idx].valid == 0) {
+        return -1;
+    }
+
+    mailbox_t *mbox = &mailboxs[mbox_idx];
+    char *data = (char *)msg;
+
+    spin_lock_acquire(&mbox->lock);
+
+    while (mbox->data_count < msg_length) {
+        current_running->status = TASK_BLOCKED;
+        do_block(&current_running->list, &mbox->recv_queue);
+        spin_lock_release(&mbox->lock);
+        do_scheduler();
+        spin_lock_acquire(&mbox->lock);
+    }
+
+    for (int i = 0; i < msg_length; i++) {
+        data[i] = mbox->buffer[mbox->head];
+        mbox->head = (mbox->head + 1) % MAX_MBOX_LENGTH;
+    }
+    
+    mbox->data_count -= msg_length;
+
+    while (!list_empty(&mbox->send_queue)) {
+        do_unblock(mbox->send_queue.next);
+        break; 
+    }
+
+    spin_lock_release(&mbox->lock);
+    return msg_length;
+}
+
