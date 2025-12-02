@@ -6,10 +6,12 @@
 #include <os/mm.h>
 #include <screen.h>
 #include <printk.h>
-#include <assert.h>
 #include <os/task.h>
 #include <os/loader.h>
 #include <os/string.h>
+#include <os/smp.h>
+
+pcb_t * current_running[CPU_CORE_NUM];
 
 pcb_t pcb[NUM_MAX_TASK];
 const ptr_t pid0_stack = INIT_KERNEL_STACK + PAGE_SIZE;
@@ -17,6 +19,13 @@ pcb_t pid0_pcb = {
     .pid = 0,
     .kernel_sp = (ptr_t)pid0_stack,
     .user_sp = (ptr_t)pid0_stack
+};
+
+const ptr_t s_pid0_stack = INIT_KERNEL_STACK + 2 * PAGE_SIZE;
+pcb_t s_pid0_pcb = {
+    .pid = 0,
+    .kernel_sp = (ptr_t)s_pid0_stack,
+    .user_sp = (ptr_t)s_pid0_stack
 };
 
 LIST_HEAD(ready_queue);
@@ -33,25 +42,25 @@ void do_scheduler(void)
     /* Do not touch this comment. Reserved for future projects. */
     /************************************************************/
 
-    // TODO: [p2-task1] Modify the current_running pointer.
+    // TODO: [p2-task1] Modify the current_running[cpu_id] pointer.
     check_sleeping();
-    pcb_t *prev_running = current_running; 
+    pcb_t *prev_running = current_running[cpu_id]; 
 
     if (!list_empty(&ready_queue)) {
         list_node_t *next_node = ready_queue.next;
-        current_running = list_entry(next_node, pcb_t, list);
+        current_running[cpu_id] = list_entry(next_node, pcb_t, list);
         if (prev_running->status == TASK_RUNNING) {
             prev_running->status = TASK_READY;
             list_add_tail(&prev_running->list, &ready_queue);
         }
-        current_running->status = TASK_RUNNING;
+        current_running[cpu_id]->status = TASK_RUNNING;
         list_del(next_node);
     } else {
-        current_running = &pid0_pcb;
+        current_running[cpu_id] = &pid0_pcb;
     }
 
-    // TODO: [p2-task1] switch_to current_running
-    switch_to(prev_running, current_running);
+    // TODO: [p2-task1] switch_to current_running[cpu_id]
+    switch_to(prev_running, current_running[cpu_id]);
 }
 
 void do_sleep(uint32_t sleep_time)
@@ -61,9 +70,9 @@ void do_sleep(uint32_t sleep_time)
     // 1. block the current_running
     // 2. set the wake up time for the blocked task
     // 3. reschedule because the current_running is blocked.
-    current_running->status = TASK_BLOCKED;
-    list_add_tail(&current_running->list, &sleep_queue);
-    current_running->wakeup_time = get_timer() + sleep_time;
+    current_running[cpu_id]->status = TASK_BLOCKED;
+    list_add_tail(&current_running[cpu_id]->list, &sleep_queue);
+    current_running[cpu_id]->wakeup_time = get_timer() + sleep_time;
     do_scheduler();
 }
 
@@ -139,8 +148,8 @@ pid_t do_exec(char *name, int argc, char **argv)
 
 void do_exit(void)
 {
-    current_running->status = TASK_EXITED;
-    release_resource(current_running);
+    current_running[cpu_id]->status = TASK_EXITED;
+    release_resource(current_running[cpu_id]);
     do_scheduler();
 }
 
@@ -161,7 +170,7 @@ int do_waitpid(pid_t pid)
     for(int i=0; i<NUM_MAX_TASK; i++){
         if(pcb[i].pid == pid){
             if(pcb[i].status != TASK_EXITED){
-                do_block(&(current_running->list), &(pcb[i].wait_list));
+                do_block(&(current_running[cpu_id]->list), &(pcb[i].wait_list));
                 do_scheduler();
                 return pid;
             }
@@ -203,5 +212,5 @@ void release_resource(pcb_t *pcb)
 
 int do_getpid()
 {
-    return current_running->pid;
+    return current_running[cpu_id]->pid;
 }

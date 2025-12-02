@@ -190,6 +190,7 @@ ENTRY(ret_from_exception)
   /* TODO: [p2-task3] restore context via provided macro and return to sepc */
   /* HINT: remember to check your sp, does it point to the right address? */
   # RESTORE_CONTEXT
+  call unlock_kernel
   ld ra, OFFSET_REG_RA(sp)
   ld gp, OFFSET_REG_GP(sp)
   ld tp, OFFSET_REG_TP(sp)
@@ -245,6 +246,7 @@ ENTRY(exception_handler_entry)
 
   /* TODO: [p2-task3] save context via the provided macro */
   SAVE_CONTEXT
+  call lock_kernel
 
   /* TODO: [p2-task3] load ret_from_exception into $ra so that we can return to
    * ret_from_exception when interrupt_help complete.

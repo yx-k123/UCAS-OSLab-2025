@@ -7,6 +7,7 @@
 #include <printk.h>
 #include <assert.h>
 #include <screen.h>
+#include <os/smp.h>
 
 handler_t irq_table[IRQC_COUNT];
 handler_t exc_table[EXCC_COUNT];
@@ -15,6 +16,7 @@ void interrupt_helper(regs_context_t *regs, uint64_t stval, uint64_t scause)
 {
     // TODO: [p2-task3] & [p2-task4] interrupt handler.
     // call corresponding handler by the value of `scause`
+    cpu_id = get_current_cpu_id();
     if (scause & (1UL<<63)) {
         uint64_t irq = scause & 0xFFF;
         if (irq < IRQC_COUNT && irq_table[irq])
@@ -65,7 +67,7 @@ void init_exception()
     irq_table[IRQC_M_EXT] = handle_other;
 
     /* TODO: [p2-task3] set up the entrypoint of exceptions */
-    setup_exception();
+    // setup_exception();
 }
 
 void handle_other(regs_context_t *regs, uint64_t stval, uint64_t scause)

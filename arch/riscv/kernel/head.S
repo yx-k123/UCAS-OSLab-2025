@@ -7,12 +7,16 @@
 #include <csr.h>
 
 #define KERNEL_STACK		0x50500000
+#define SECOND_KERNEL_STACK	0x50600000
 
 .section ".entry_function","ax"
 ENTRY(_start)
   /* Mask all interrupts */
   csrw CSR_SIE, zero
   csrw CSR_SIP, zero
+
+  csrr t0, CSR_MHARTID
+  bnez t0, second_start
 
   /* TODO: [p1-task2] clear BSS for flat non-ELF images */
   la t0, __bss_start
@@ -26,9 +30,15 @@ clear_bss:
   /* TODO: [p1-task2] setup C environment */
 set_stack:
   la sp, KERNEL_STACK
+  la tp, pid0_pcb
 
 step_main:
   jal ra, main
+
+second_start:
+  la sp, SECOND_KERNEL_STACK
+  la tp, s_pid0_pcb
+  call main
 
 loop:
   wfi

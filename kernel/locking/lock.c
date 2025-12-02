@@ -3,6 +3,7 @@
 #include <os/list.h>
 #include <os/string.h>
 #include <atomic.h>
+#include <os/smp.h>
 
 mutex_lock_t mlocks[LOCK_NUM];
 barrier_t barriers[BARRIER_NUM];
@@ -78,11 +79,11 @@ void do_mutex_lock_acquire(int mlock_idx)
 {
     mutex_lock_t *mlock = &mlocks[mlock_idx];
     if (spin_lock_try_acquire(&mlock->lock)) {
-        mlock->pid = current_running->pid;
+        mlock->pid = current_running[cpu_id]->pid;
         return;
     } else {
-        current_running->status = TASK_BLOCKED;
-        do_block(&current_running->list, &mlock->block_queue);
+        current_running[cpu_id]->status = TASK_BLOCKED;
+        do_block(&current_running[cpu_id]->list, &mlock->block_queue);
         do_scheduler();
     } 
 }
@@ -90,7 +91,7 @@ void do_mutex_lock_acquire(int mlock_idx)
 void do_mutex_lock_release(int mlock_idx)
 {
     mutex_lock_t *mlock = &mlocks[mlock_idx];
-    if (mlock->pid != current_running->pid) {
+    if (mlock->pid != current_running[cpu_id]->pid) {
         return;
     }
     mlock->pid = -1;  
@@ -149,8 +150,8 @@ void do_barrier_wait(int bar_idx){
         barriers[bar_idx].count = 0;
     } else {
         // 阻塞当前线程
-        current_running->status = TASK_BLOCKED;
-        do_block(&current_running->list, &barriers[bar_idx].wait_queue);
+        current_running[cpu_id]->status = TASK_BLOCKED;
+        do_block(&current_running[cpu_id]->list, &barriers[bar_idx].wait_queue);
         spin_lock_release(&barriers[bar_idx].lock);
         do_scheduler();
         return;
@@ -202,8 +203,8 @@ int do_condition_init(int key){
 }
 
 void do_condition_wait(int cond_idx, int mutex_idx){
-    current_running->status = TASK_BLOCKED;
-    do_block(&current_running->list, &conditions[cond_idx].wait_queue);
+    current_running[cpu_id]->status = TASK_BLOCKED;
+    do_block(&current_running[cpu_id]->list, &conditions[cond_idx].wait_queue);
     do_mutex_lock_release(mutex_idx);
     do_scheduler();
 }
@@ -296,8 +297,8 @@ int do_mbox_send(int mbox_idx, void * msg, int msg_length){
     spin_lock_acquire(&mbox->lock);
 
     while (MAX_MBOX_LENGTH - mbox->data_count < msg_length) {
-        current_running->status = TASK_BLOCKED;
-        do_block(&current_running->list, &mbox->send_queue);
+        current_running[cpu_id]->status = TASK_BLOCKED;
+        do_block(&current_running[cpu_id]->list, &mbox->send_queue);
         spin_lock_release(&mbox->lock); 
         do_scheduler();
         spin_lock_acquire(&mbox->lock);
@@ -330,8 +331,8 @@ int do_mbox_recv(int mbox_idx, void * msg, int msg_length){
     spin_lock_acquire(&mbox->lock);
 
     while (mbox->data_count < msg_length) {
-        current_running->status = TASK_BLOCKED;
-        do_block(&current_running->list, &mbox->recv_queue);
+        current_running[cpu_id]->status = TASK_BLOCKED;
+        do_block(&current_running[cpu_id]->list, &mbox->recv_queue);
         spin_lock_release(&mbox->lock);
         do_scheduler();
         spin_lock_acquire(&mbox->lock);
