@@ -37,6 +37,7 @@ pid_t process_id = 1;
 void do_scheduler(void)
 {
     // TODO: [p2-task3] Check sleep queue to wake up PCBs
+    uint64_t cpu_id = get_current_cpu_id();
 
     /************************************************************/
     /* Do not touch this comment. Reserved for future projects. */
@@ -56,7 +57,11 @@ void do_scheduler(void)
         current_running[cpu_id]->status = TASK_RUNNING;
         list_del(next_node);
     } else {
-        current_running[cpu_id] = &pid0_pcb;
+        if (cpu_id == 0) {
+            current_running[cpu_id] = &pid0_pcb;
+        } else {
+            current_running[cpu_id] = &s_pid0_pcb;
+        }
     }
 
     // TODO: [p2-task1] switch_to current_running[cpu_id]
@@ -64,7 +69,8 @@ void do_scheduler(void)
 }
 
 void do_sleep(uint32_t sleep_time)
-{
+{   
+    uint64_t cpu_id = get_current_cpu_id();
     // TODO: [p2-task3] sleep(seconds)
     // NOTE: you can assume: 1 second = 1 `timebase` ticks
     // 1. block the current_running
@@ -148,6 +154,7 @@ pid_t do_exec(char *name, int argc, char **argv)
 
 void do_exit(void)
 {
+    uint64_t cpu_id = get_current_cpu_id();
     current_running[cpu_id]->status = TASK_EXITED;
     release_resource(current_running[cpu_id]);
     do_scheduler();
@@ -166,7 +173,8 @@ int do_kill(pid_t pid)
 }
 
 int do_waitpid(pid_t pid)
-{
+{   
+    uint64_t cpu_id = get_current_cpu_id();
     for(int i=0; i<NUM_MAX_TASK; i++){
         if(pcb[i].pid == pid){
             if(pcb[i].status != TASK_EXITED){
@@ -211,6 +219,7 @@ void release_resource(pcb_t *pcb)
 }
 
 int do_getpid()
-{
+{   
+    uint64_t cpu_id = get_current_cpu_id();
     return current_running[cpu_id]->pid;
 }

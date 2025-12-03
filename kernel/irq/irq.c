@@ -16,7 +16,7 @@ void interrupt_helper(regs_context_t *regs, uint64_t stval, uint64_t scause)
 {
     // TODO: [p2-task3] & [p2-task4] interrupt handler.
     // call corresponding handler by the value of `scause`
-    cpu_id = get_current_cpu_id();
+    // cpu_id = get_current_cpu_id();
     if (scause & (1UL<<63)) {
         uint64_t irq = scause & 0xFFF;
         if (irq < IRQC_COUNT && irq_table[irq])

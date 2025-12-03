@@ -76,7 +76,8 @@ int do_mutex_lock_init(int key)
 }
 
 void do_mutex_lock_acquire(int mlock_idx)
-{
+{   
+    uint64_t cpu_id = get_current_cpu_id();
     mutex_lock_t *mlock = &mlocks[mlock_idx];
     if (spin_lock_try_acquire(&mlock->lock)) {
         mlock->pid = current_running[cpu_id]->pid;
@@ -89,7 +90,8 @@ void do_mutex_lock_acquire(int mlock_idx)
 }
 
 void do_mutex_lock_release(int mlock_idx)
-{
+{   
+    uint64_t cpu_id = get_current_cpu_id();
     mutex_lock_t *mlock = &mlocks[mlock_idx];
     if (mlock->pid != current_running[cpu_id]->pid) {
         return;
@@ -138,6 +140,7 @@ int do_barrier_init(int key, int goal){
 }
 
 void do_barrier_wait(int bar_idx){
+    uint64_t cpu_id = get_current_cpu_id();
     spin_lock_acquire(&barriers[bar_idx].lock);
     barriers[bar_idx].count++;
     if (barriers[bar_idx].count == barriers[bar_idx].goal) {
@@ -203,6 +206,7 @@ int do_condition_init(int key){
 }
 
 void do_condition_wait(int cond_idx, int mutex_idx){
+    uint64_t cpu_id = get_current_cpu_id();
     current_running[cpu_id]->status = TASK_BLOCKED;
     do_block(&current_running[cpu_id]->list, &conditions[cond_idx].wait_queue);
     do_mutex_lock_release(mutex_idx);
@@ -297,6 +301,7 @@ int do_mbox_send(int mbox_idx, void * msg, int msg_length){
     spin_lock_acquire(&mbox->lock);
 
     while (MAX_MBOX_LENGTH - mbox->data_count < msg_length) {
+        uint64_t cpu_id = get_current_cpu_id();
         current_running[cpu_id]->status = TASK_BLOCKED;
         do_block(&current_running[cpu_id]->list, &mbox->send_queue);
         spin_lock_release(&mbox->lock); 
@@ -321,6 +326,7 @@ int do_mbox_send(int mbox_idx, void * msg, int msg_length){
 }
 
 int do_mbox_recv(int mbox_idx, void * msg, int msg_length){
+    uint64_t cpu_id = get_current_cpu_id();
     if (mbox_idx < 0 || mbox_idx >= MBOX_NUM || mailboxs[mbox_idx].valid == 0) {
         return -1;
     }

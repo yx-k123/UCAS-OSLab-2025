@@ -408,12 +408,12 @@ int main(void)
         unlock_kernel();
         wakeup_other_hart();
         lock_kernel();
-        cpu_id = 0;
-        current_running[cpu_id]->status = TASK_RUNNING;
+        // cpu_id = 0;
+        current_running[curr_cpu_id]->status = TASK_RUNNING;
     } else {
         lock_kernel();
-        cpu_id = 1;
-        current_running[cpu_id]->status = TASK_RUNNING;
+        // cpu_id = 1;
+        current_running[curr_cpu_id]->status = TASK_RUNNING;
     }
 
     setup_exception();
@@ -422,7 +422,7 @@ int main(void)
     // NOTE: The function of sstatus.sie is different from sie's
     bios_set_timer(get_ticks() + TIMER_INTERVAL);
 
-    if(cpu_id == 0)
+    if(curr_cpu_id == 0)
         printk("> [INIT] CPU 0 initialization succeeded.\n");
     else 
         printk("> [INIT] CPU 1 initialization succeeded.\n");
@@ -432,7 +432,6 @@ int main(void)
     while (1)
     {   
         enable_preempt();
-        asm volatile("wfi");
     }
     return 0;
 }

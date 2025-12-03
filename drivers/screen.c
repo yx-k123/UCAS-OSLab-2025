@@ -5,6 +5,7 @@
 #include <os/irq.h>
 #include <os/kernel.h>
 #include <os/smp.h>
+#include <os/lock.h>
 
 #define SCREEN_WIDTH    80
 #define SCREEN_HEIGHT   50
@@ -38,7 +39,8 @@ static void vt100_hidden_cursor()
 /* write a char */
 /* write a char */
 void screen_write_ch(char ch)
-{
+{   
+    uint64_t cpu_id = get_current_cpu_id();
     if (ch == '\n')
     {
         current_running[cpu_id]->cursor_x = 0;
@@ -83,6 +85,7 @@ void init_screen(void)
 void screen_clear(void)
 {
     int i, j;
+    uint64_t cpu_id = get_current_cpu_id();
 	vt100_clear();
     for (i = 0; i < SCREEN_HEIGHT; i++)
     {
@@ -98,7 +101,8 @@ void screen_clear(void)
 }
 
 void screen_move_cursor(int x, int y)
-{
+{   
+    uint64_t cpu_id = get_current_cpu_id();
     if (x >= SCREEN_WIDTH)
         x = SCREEN_WIDTH - 1;
     else if (x < 0)
@@ -134,7 +138,7 @@ void screen_write(char *buff)
 void screen_reflush(void)
 {
     int i, j;
-
+    uint64_t cpu_id = get_current_cpu_id();
     /* here to reflush screen buffer to serial port */
     for (i = 0; i < SCREEN_HEIGHT; i++)
     {
