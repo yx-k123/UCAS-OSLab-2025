@@ -297,7 +297,7 @@ static void init_pcb(void)
     s_pid0_pcb.user_sp = (ptr_t)s_pid0_stack;
 ;
     s_pid0_pcb.kernel_sp = (ptr_t)s_pid0_stack;
-    s_pid0_pcb.status = TASK_READY;
+    s_pid0_pcb.status = TASK_RUNNING;
     s_pid0_pcb.cursor_x = 0;
     s_pid0_pcb.cursor_y = 0;
 
@@ -432,6 +432,7 @@ int main(void)
     while (1)
     {   
         enable_preempt();
+        asm volatile("wfi");
     }
     return 0;
 }
