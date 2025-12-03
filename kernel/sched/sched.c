@@ -203,10 +203,14 @@ void do_process_show(){
 
 void release_resource(pcb_t *pcb)
 {   
-    list_del(&pcb->list);
+    uint64_t cpu_id = get_current_cpu_id();
+    if (pcb != current_running[cpu_id]) {
+         list_del(&pcb->list);
+    }
 
     for(int i=0; i<LOCK_NUM; i++){
         if (mlocks[i].pid == pcb->pid) {
+            mlocks[i].pid = current_running[cpu_id]->pid;
             do_mutex_lock_release(i);
         }
     }
