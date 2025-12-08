@@ -8,7 +8,7 @@
 .equ app_size_loc, 0x502001fa
 
 // kernel address (move kernel to here, and jmp here to start kernel)
-.equ kernel, 0x50201000
+.equ kernel, 0x50202000
 
 // BIOS function entry (jump here to use BIOS APIs)
 .equ bios_func_entry, 0x50150000

@@ -120,8 +120,8 @@ pid_t do_exec(char *name, int argc, char **argv)
         return -1;
     }
 
-    pcb[index].kernel_sp = (reg_t)(allocKernelPage(1)+PAGE_SIZE); 
-    pcb[index].user_sp = (reg_t)(allocUserPage(1)+PAGE_SIZE);
+    pcb[index].kernel_sp = (reg_t)(allocPage(1)+PAGE_SIZE); 
+    pcb[index].user_sp = (reg_t)(allocPage(1)+PAGE_SIZE);
     uint64_t user_sp = pcb[index].user_sp;
     pcb[index].pid = task_num + 1; 
     pcb[index].status = TASK_READY;

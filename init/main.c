@@ -415,7 +415,7 @@ int main(void)
         //   and then execute them.
 
         // Infinite while loop, where CPU stays in a low-power state (QAQQQQQQQQQQQ)
-        do_exec("shell", 0, NULL);
+        // do_exec("shell", 0, NULL);
         unlock_kernel();
         wakeup_other_hart();
         lock_kernel();
@@ -435,10 +435,9 @@ int main(void)
      * NOTE: if you use SMP, then every CPU core should call
      *  `kernel_brake()` to stop executing!
      */
-    printk("> [INIT] CPU #%u has entered kernel with VM!\n",
-        (unsigned int)get_current_cpu_id());
+    printk("> [INIT] CPU #%u has entered kernel with VM!\n", (unsigned int)get_current_cpu_id());
     // TODO: [p4-task1 cont.] remove the brake and continue to start user processes.
-    kernel_brake();
+    // kernel_brake();
 
     // TODO: [p2-task4] Setup timer interrupt and enable all interrupt globally
     // NOTE: The function of sstatus.sie is different from sie's

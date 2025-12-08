@@ -76,42 +76,56 @@ typedef uint64_t PTE;
 static inline uintptr_t kva2pa(uintptr_t kva)
 {
     /* TODO: [P4-task1] */
+    return kva - 0xffffffc000000000lu;
 }
 
 static inline uintptr_t pa2kva(uintptr_t pa)
 {
     /* TODO: [P4-task1] */
+    return pa + 0xffffffc000000000lu;
 }
 
 /* get physical page addr from PTE 'entry' */
 static inline uint64_t get_pa(PTE entry)
 {
     /* TODO: [P4-task1] */
+    uint64_t pfn = entry >> _PAGE_PFN_SHIFT;
+    return pfn << NORMAL_PAGE_SHIFT;
 }
 
 /* Get/Set page frame number of the `entry` */
 static inline long get_pfn(PTE entry)
 {
     /* TODO: [P4-task1] */
+    return (entry >> _PAGE_PFN_SHIFT);
 }
 static inline void set_pfn(PTE *entry, uint64_t pfn)
 {
     /* TODO: [P4-task1] */
+    *entry &= ((1lu << _PAGE_PFN_SHIFT) - 1);
+    *entry |= (pfn << _PAGE_PFN_SHIFT);
 }
 
 /* Get/Set attribute(s) of the `entry` */
 static inline long get_attribute(PTE entry, uint64_t mask)
 {
     /* TODO: [P4-task1] */
+    return (entry & mask);
 }
 static inline void set_attribute(PTE *entry, uint64_t bits)
 {
     /* TODO: [P4-task1] */
+    *entry &= ~((1UL << _PAGE_PFN_SHIFT) - 1);
+    *entry |= bits;
 }
 
 static inline void clear_pgdir(uintptr_t pgdir_addr)
 {
     /* TODO: [P4-task1] */
+    PTE *pgdir = (PTE *)pgdir_addr;;
+    for (int i = 0; i < NUM_PTE_ENTRY; i++) {
+        pgdir[i] = 0;
+    }
 }
 
 #endif  // PGTABLE_H

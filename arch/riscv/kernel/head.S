@@ -6,8 +6,8 @@
 #include <asm.h>
 #include <csr.h>
 
-#define KERNEL_STACK		0x50500000
-#define SECOND_KERNEL_STACK	0x50600000
+#define KERNEL_STACK		0x50500000 // + 0xffffffc0_00000000
+#define SECOND_KERNEL_STACK	0x50600000 // + 0xffffffc0_00000000
 
 .section ".entry_function","ax"
 ENTRY(_start)
@@ -30,6 +30,9 @@ clear_bss:
   /* TODO: [p1-task2] setup C environment */
 set_stack:
   la sp, KERNEL_STACK
+  li t0, 0xffffffc0
+  slli t0, t0, 32
+  add sp, sp, t0
   la tp, pid0_pcb
 
 step_main:
@@ -37,6 +40,9 @@ step_main:
 
 second_start:
   la sp, SECOND_KERNEL_STACK
+  li t0, 0xffffffc0
+  slli t0, t0, 32
+  add sp, sp, t0
   la tp, s_pid0_pcb
   call main
 
