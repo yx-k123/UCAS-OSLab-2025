@@ -110,5 +110,6 @@
 #define SWITCH_TO_S11    104
 
 #define SWITCH_TO_SIZE   112
+#define PCB_PGDIR 32
 
 #endif

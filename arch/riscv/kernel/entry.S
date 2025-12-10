@@ -54,7 +54,7 @@
    * Disable the FPU to detect illegal usage of floating point in kernel
    * space.
    */
-  li t0, SR_SUM | SR_FS
+  li t0, SR_FS
 
   /* TODO: [p2-task3] save sstatus, sepc, stval and scause on kernel stack */
   csrr t1, sstatus

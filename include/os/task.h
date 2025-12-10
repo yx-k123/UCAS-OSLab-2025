@@ -15,6 +15,9 @@ typedef struct {
     char name[32];      // Task name
     int offset;       // Offset in the image file
     int size;         // Size of the task
+    uint64_t entry_point; // Entry point of the task
+    uint64_t p_filesz;   // Size of the segment in the file
+    uint64_t p_memsz;    // Memory size required
 } task_info_t;
 
 extern task_info_t tasks[TASK_MAXNUM];

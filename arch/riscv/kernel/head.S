@@ -15,6 +15,9 @@ ENTRY(_start)
   csrw CSR_SIE, zero
   csrw CSR_SIP, zero
 
+  li t0, SR_SUM
+  csrrs t0, CSR_SSTATUS, t0
+
   csrr t0, CSR_MHARTID
   bnez t0, second_start
 

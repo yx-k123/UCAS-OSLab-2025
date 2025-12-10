@@ -1,56 +1,81 @@
+#include "os/smp.h"
 #include <os/task.h>
 #include <os/string.h>
 #include <os/kernel.h>
 #include <type.h>
 #include <common.h>
+#include <os/mm.h>
+#include <pgtable.h>
+#include <printk.h>
+
+#define PAGE_SIZE 4096
+#define CPU_NUM 2
 
 extern task_info_t tasks[TASK_MAXNUM];
 
-static void *my_memmove(void *dst, const void *src, size_t n)
+// 每个 CPU 一个对齐缓冲区
+static uint8_t buffer[CPU_NUM][PAGE_SIZE + SECTOR_SIZE] __attribute__((aligned(16)));
+
+uint64_t load_task_img(char *taskname, uintptr_t pgdir)
 {
-    unsigned char *d = (unsigned char *)dst;
-    const unsigned char *s = (const unsigned char *)src;
-    if (d == s || n == 0) return dst;
-    if (d < s) {
-        for (size_t i = 0; i < n; i++) d[i] = s[i];
-    } else {
-        for (size_t i = n; i != 0; i--) d[i - 1] = s[i - 1];
-    }
-    return dst;
-}
-
-uint64_t load_task_img(char *taskname)
-{   
-    /**
-     * TODO:
-     * 1. [p1-task3] load task from image via task id, and return its entrypoint
-     * 2. [p1-task4] load task via task name, thus the arg should be 'char *taskname'
-     */
     for (int i = 0; i < TASK_MAXNUM; ++i) {
-        if (strcmp(tasks[i].name, taskname) == 0) {
-            // bios_putstr("\n\rLoading task: ");
-            // bios_putstr(tasks[i].name);
-            // bios_putstr("\n\r");
+        if (strcmp(tasks[i].name, taskname) != 0)
+            continue;
 
-            uint64_t task_entry = TASK_MEM_BASE + TASK_SIZE * i;
+        uint64_t va_start   = tasks[i].entry_point; // 0x10000
+        uint64_t p_memsz    = tasks[i].p_memsz;
+        uint64_t p_filesz   = tasks[i].p_filesz;
+        uint64_t file_off   = tasks[i].offset;      // 在 image 中的偏移
+        int      cpu_id     = get_current_cpu_id();
 
-            int block_id = tasks[i].offset / SECTOR_SIZE;
-            int inblk_off  = tasks[i].offset % SECTOR_SIZE;
+        for (uint64_t va = va_start; va < va_start + p_memsz; va += PAGE_SIZE) {
+            uintptr_t kva = alloc_page_helper(va, pgdir);
+            uint64_t offset_in_task = va - va_start;
 
-            unsigned total_bytes  = inblk_off + tasks[i].size;
-            unsigned num_of_blks  = (total_bytes + SECTOR_SIZE - 1) / SECTOR_SIZE;
+            if (offset_in_task < p_filesz) {
+                uint64_t left   = p_filesz - offset_in_task;
+                uint64_t copy_len = left > PAGE_SIZE ? PAGE_SIZE : left;
 
-            if (sd_read((unsigned)task_entry, (unsigned)num_of_blks, (unsigned)block_id) < 0) {
-                bios_putstr("\n\rFailed to load task!");
-                return 0;
+                uint64_t cur_file_off = file_off + offset_in_task;
+                int block_id  = cur_file_off / SECTOR_SIZE;
+                int inblk_off = cur_file_off % SECTOR_SIZE;
+                int num_blks  = (inblk_off + copy_len + SECTOR_SIZE - 1) / SECTOR_SIZE;
+
+                sd_read(kva2pa((uintptr_t)buffer[cpu_id]), num_blks, block_id);
+                memcpy((void *)kva, buffer[cpu_id] + inblk_off, copy_len);
+
+                // 调试：只在第一个页（va == va_start == 0x10000）打印前 4 字节
+                if (offset_in_task == 0) {
+                    uint32_t word0 = *(uint32_t *)kva;
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("\n");
+                    printk("[load_task_img] task %s va=0x%lx first word=0x%x\n",
+                           taskname, va, word0);
+                }
+
+                if (copy_len < PAGE_SIZE) {
+                    memset((void *)(kva + copy_len), 0, PAGE_SIZE - copy_len);
+                }
+            } else {
+                memset((void *)kva, 0, PAGE_SIZE);
             }
-            if (inblk_off != 0) {
-                my_memmove((void *)task_entry,(void *)(task_entry + inblk_off),tasks[i].size);
-            }
-            return task_entry;
         }
+
+        return tasks[i].entry_point;
     }
 
-    bios_putstr("\n\rTask not found!");
     return 0;
 }

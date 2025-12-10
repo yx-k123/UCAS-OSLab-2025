@@ -1,3 +1,4 @@
+#include "pgtable.h"
 #include "type.h"
 #include <os/list.h>
 #include <os/lock.h>
@@ -36,23 +37,15 @@ pid_t process_id = 1;
 
 void do_scheduler(void)
 {
-    // TODO: [p2-task3] Check sleep queue to wake up PCBs
     uint64_t cpu_id = get_current_cpu_id();
-
-    /************************************************************/
-    /* Do not touch this comment. Reserved for future projects. */
-    /************************************************************/
-
-    // TODO: [p2-task1] Modify the current_running[cpu_id] pointer.
-    check_sleeping();
-    pcb_t *prev_running = current_running[cpu_id]; 
+    pcb_t *prev = current_running[cpu_id];
 
     if (!list_empty(&ready_queue)) {
         list_node_t *next_node = ready_queue.next;
         current_running[cpu_id] = list_entry(next_node, pcb_t, list);
-        if (prev_running->status == TASK_RUNNING) {
-            prev_running->status = TASK_READY;
-            list_add_tail(&prev_running->list, &ready_queue);
+        if (prev->status == TASK_RUNNING) {
+            prev->status = TASK_READY;
+            list_add_tail(&prev->list, &ready_queue);
         }
         current_running[cpu_id]->status = TASK_RUNNING;
         list_del(next_node);
@@ -64,8 +57,22 @@ void do_scheduler(void)
         }
     }
 
-    // TODO: [p2-task1] switch_to current_running[cpu_id]
-    switch_to(prev_running, current_running[cpu_id]);
+    pcb_t *next = current_running[cpu_id];
+
+    if (next == prev)
+        return;
+
+    // 切换地址空间：只有用户进程有独立 pgdir，idle 用内核 pgdir
+    uintptr_t next_pgdir = next->pgdir;
+    if (!next_pgdir) {
+        next_pgdir = pa2kva(PGDIR_PA);
+    }
+
+    uintptr_t next_ppn = kva2pa(next_pgdir) >> NORMAL_PAGE_SHIFT;
+    set_satp(SATP_MODE_SV39, next->pid, next_ppn);
+    local_flush_tlb_all();
+
+    switch_to(prev, next);
 }
 
 void do_sleep(uint32_t sleep_time)
@@ -100,56 +107,55 @@ void do_unblock(list_node_t *pcb_node)
 }
 
 pid_t do_exec(char *name, int argc, char **argv)
-{   
-    int index = -1;
-    for (int i = 0; i < TASK_MAXNUM; i++) {
+{
+    int idx = -1;
+    for (int i = 0; i < NUM_MAX_TASK; ++i) {
         if (pcb[i].status == TASK_EXITED) {
-            index = i;
+            idx = i;
             break;
-        } 
+        }
     }
-
-    if (index == -1) {
+    if (idx < 0)
         return -1;
-    }
 
-    uint64_t entry_point;
-    entry_point = load_task_img(name);
+    pcb_t *p = &pcb[idx];
 
-    if (entry_point == 0) {
+    // 1. 分配用户页表根页
+    uintptr_t new_pgdir = allocPage(1);      // 返回 KVA
+    memset((void *)new_pgdir, 0, PAGE_SIZE);
+
+    // 2. 拷贝内核映射
+    share_pgtable(new_pgdir, pa2kva(PGDIR_PA));
+    p->pgdir = (uintptr_t)new_pgdir;
+
+    // 3. 加载程序到这个 pgdir
+    uint64_t entry = load_task_img(name, new_pgdir);
+    if (!entry)
         return -1;
-    }
 
-    pcb[index].kernel_sp = (reg_t)(allocPage(1)+PAGE_SIZE); 
-    pcb[index].user_sp = (reg_t)(allocPage(1)+PAGE_SIZE);
-    uint64_t user_sp = pcb[index].user_sp;
-    pcb[index].pid = task_num + 1; 
-    pcb[index].status = TASK_READY;
-    pcb[index].cursor_x = 0;
-    pcb[index].cursor_y = 0;
-    pcb[index].wait_list.next = &pcb[index].wait_list;
-    pcb[index].wait_list.prev = &pcb[index].wait_list;
-    pcb[index].list.next = NULL;
-    pcb[index].list.prev = NULL;
+    // 4. 分配内核栈
+    p->kernel_sp = allocPage(1) + PAGE_SIZE;
 
-    user_sp -= sizeof(char*) * argc;
-    char **argv_user = (char **)user_sp;
-    argv_user[argc]  = NULL;
-    for(int i=argc-1; i>=0; i--){
-        int len = strlen(argv[i]) + 1;
-        user_sp -=len;
-        argv_user[i] = (char*)user_sp;
-        strcpy((char*)user_sp, argv[i]);
-    }
+    // 5. 分配用户栈（USER_STACK_ADDR 在 include/os/mm.h 里定义）
+    uintptr_t user_stack_top = USER_STACK_ADDR;
+    (void)alloc_page_helper(user_stack_top - PAGE_SIZE, new_pgdir);
+    p->user_sp = user_stack_top;
 
-    pcb[index].user_sp = (reg_t)ROUNDDOWN(user_sp, 128);
-    init_pcb_stack(
-        pcb[index].kernel_sp, pcb[index].user_sp, entry_point,
-        &pcb[index], argc, argv_user
-    );
-    list_add_tail(&pcb[index].list, &ready_queue);
-    task_num++;
-    return pcb[index].pid;
+    // 6. 初始化 PCB 其他字段
+    p->pid        = process_id++;
+    p->status     = TASK_READY;
+    p->cursor_x   = 0;
+    p->cursor_y   = 0;
+    p->wakeup_time = 0;
+    init_list_head(&p->wait_list);
+
+    // 建立初始内核栈上的寄存器上下文
+    init_pcb_stack(p->kernel_sp, p->user_sp, entry, p, argc, argv);
+
+    // 7. 加入 ready_queue
+    list_add_tail(&p->list, &ready_queue);
+
+    return p->pid;
 }
 
 void do_exit(void)

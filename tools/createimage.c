@@ -2,6 +2,7 @@
 #include <elf.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,6 +27,9 @@ typedef struct {
     char name[32];      // Task name
     int offset;       // Offset in the image file
     int size;         // Size of the task
+    uint64_t entry_point; // Entry point of the task
+    uint64_t p_filesz;   // Size of the segment in the file
+    uint64_t p_memsz;    // Memory size required
 } task_info_t;
 
 #define TASK_MAXNUM 16
@@ -105,6 +109,11 @@ static void create_image(int nfiles, char *files[])
 
         int taskidx = fidx - 2;
         int start_addr = phyaddr;
+        uint64_t total_filesz = 0, total_memsz = 0;
+
+        // 用来记录 entry 段在大镜像中的真实 offset
+        uint32_t entry_seg_img_off = 0;
+        uint64_t entry_point;
 
         /* open input file */
         fp = fopen(*files, "r");
@@ -112,6 +121,7 @@ static void create_image(int nfiles, char *files[])
 
         /* read ELF header */
         read_ehdr(&ehdr, fp);
+        entry_point = ehdr.e_entry;
         printf("0x%04lx: %s\n", ehdr.e_entry, *files);
 
         /* for each program header */
@@ -120,14 +130,24 @@ static void create_image(int nfiles, char *files[])
             /* read program header */
             read_phdr(&phdr, fp, ph, ehdr);
 
-            if (phdr.p_type != PT_LOAD) continue;
+            if (phdr.p_type == PT_LOAD) {
+                // 记录总大小
+                total_filesz += phdr.p_filesz;
+                total_memsz  += phdr.p_memsz;
 
-            /* write segment to the image */
-            write_segment(phdr, fp, img, &phyaddr);
+                // 在写 segment 前，当前 phyaddr 就是它在大镜像中的偏移
+                int seg_img_off = phyaddr;
 
-            /* update nbytes_kernel */
-            if (strcmp(*files, "main") == 0) {
-                nbytes_kernel += get_filesz(phdr);
+                write_segment(phdr, fp, img, &phyaddr);
+
+                // 如果这个段包含 entry_point（最常见情况是 p_vaddr == entry）
+                // 就把它的镜像偏移记下来
+                if (phdr.p_vaddr <= entry_point &&
+                    entry_point < phdr.p_vaddr + phdr.p_memsz) {
+                    // entry_vaddr - phdr.p_vaddr = 在该段内部的偏移
+                    uint64_t inner = entry_point - phdr.p_vaddr;
+                    entry_seg_img_off = seg_img_off + inner;
+                }
             }
         }
 
@@ -142,16 +162,20 @@ static void create_image(int nfiles, char *files[])
             write_padding(img, &phyaddr, SECTOR_SIZE);
         } 
         if (strcmp(*files, "main") == 0) {
+            nbytes_kernel = phyaddr - SECTOR_SIZE; // 记录内核大小
             appinfo_off = phyaddr;                 
             write_padding(img, &phyaddr, appinfo_off + appinfo_size);
         } 
         if (taskidx >= 0 && taskidx < tasknum) {
             strncpy(taskinfo[taskidx].name, *files, sizeof(taskinfo[taskidx].name) - 1);
             taskinfo[taskidx].name[sizeof(taskinfo[taskidx].name) - 1] = '\0';
-            taskinfo[taskidx].offset = start_addr;
-            taskinfo[taskidx].size = phyaddr - start_addr;
-            printf("task %d: %s, offset: %d, size: %d\n", taskidx, taskinfo[taskidx].name,
-                   taskinfo[taskidx].offset, taskinfo[taskidx].size);
+
+            // 这里的 offset 记录的是 entry 段在大镜像中的真实 offset
+            taskinfo[taskidx].offset      = entry_seg_img_off;
+            taskinfo[taskidx].size        = phyaddr - start_addr;
+            taskinfo[taskidx].p_filesz    = total_filesz;
+            taskinfo[taskidx].p_memsz     = total_memsz;
+            taskinfo[taskidx].entry_point = entry_point;
         }
 
         fclose(fp);
