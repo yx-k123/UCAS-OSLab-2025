@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <screen.h>
 #include <os/smp.h>
+#include <os/mm.h>
 
 handler_t irq_table[IRQC_COUNT];
 handler_t exc_table[EXCC_COUNT];
@@ -50,9 +51,9 @@ void init_exception()
     exc_table[EXCC_LOAD_ACCESS] = handle_other;      
     exc_table[EXCC_STORE_ACCESS] = handle_other;   
     exc_table[EXCC_SYSCALL] = handle_syscall;      
-    exc_table[EXCC_INST_PAGE_FAULT] = handle_other;    
-    exc_table[EXCC_LOAD_PAGE_FAULT] = handle_other;       
-    exc_table[EXCC_STORE_PAGE_FAULT] = handle_other; 
+    exc_table[EXCC_INST_PAGE_FAULT] = handle_page_fault;    
+    exc_table[EXCC_LOAD_PAGE_FAULT] = handle_page_fault;       
+    exc_table[EXCC_STORE_PAGE_FAULT] = handle_page_fault; 
 
     /* TODO: [p2-task4] initialize irq_table */
     /* NOTE: handle_int, handle_other, etc.*/
@@ -68,6 +69,16 @@ void init_exception()
 
     /* TODO: [p2-task3] set up the entrypoint of exceptions */
     // setup_exception();
+}
+
+void handle_page_fault(regs_context_t *regs, uint64_t stval, uint64_t scause)
+{
+    // p4-t2
+    uintptr_t fault_addr = stval;
+    uintptr_t pgdir = current_running[get_current_cpu_id()]->pgdir;
+    alloc_page_helper(fault_addr, pgdir);
+    local_flush_tlb_all();
+    return;
 }
 
 void handle_other(regs_context_t *regs, uint64_t stval, uint64_t scause)
