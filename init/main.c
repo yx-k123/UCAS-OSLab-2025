@@ -161,7 +161,7 @@ void init_pcb_stack(
     pt_regs->regs[2] = user_stack;  // sp
     pt_regs->regs[4] = (reg_t)pcb;         // tp
     pt_regs->sepc = entry_point;
-    pt_regs->sstatus = SR_SPIE; 
+    pt_regs->sstatus = SR_SPIE | SR_SUM; 
     pt_regs->regs[10] = argc;
     pt_regs->regs[11] = (reg_t)argv;
 
@@ -318,7 +318,8 @@ int main(void)
         cancel_mapping();
         // cpu_id = 0;
         current_running[curr_cpu_id]->status = TASK_RUNNING;
-    } else {
+    } 
+    else {
         cpu1_ready = 1;
         lock_kernel();
         // cpu_id = 1;

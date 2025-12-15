@@ -44,28 +44,6 @@ uint64_t load_task_img(char *taskname, uintptr_t pgdir)
                 sd_read(kva2pa((uintptr_t)buffer[cpu_id]), num_blks, block_id);
                 memcpy((void *)kva, buffer[cpu_id] + inblk_off, copy_len);
 
-                // 调试：只在第一个页（va == va_start == 0x10000）打印前 4 字节
-                if (offset_in_task == 0) {
-                    uint32_t word0 = *(uint32_t *)kva;
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("\n");
-                    printk("[load_task_img] task %s va=0x%lx first word=0x%x\n",
-                           taskname, va, word0);
-                }
-
                 if (copy_len < PAGE_SIZE) {
                     memset((void *)(kva + copy_len), 0, PAGE_SIZE - copy_len);
                 }

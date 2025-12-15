@@ -68,8 +68,11 @@ void do_scheduler(void)
         next_pgdir = pa2kva(PGDIR_PA);
     }
 
-    uintptr_t next_ppn = kva2pa(next_pgdir) >> NORMAL_PAGE_SHIFT;
-    set_satp(SATP_MODE_SV39, next->pid, next_ppn);
+    set_satp(
+        SATP_MODE_SV39, 
+        current_running[get_current_cpu_id()]->pid,
+        kva2pa(current_running[get_current_cpu_id()]->pgdir) >> NORMAL_PAGE_SHIFT
+    );
     local_flush_tlb_all();
 
     switch_to(prev, next);
