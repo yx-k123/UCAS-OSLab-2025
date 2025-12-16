@@ -51,7 +51,7 @@ ptr_t allocPage(int numPage) {
     spin_lock_acquire(&os_mm_lock);
     while (list_empty(&free_list)) {
         spin_lock_release(&os_mm_lock);
-        printk("DEBUG: allocPage free_list empty, calling swap_out()\n");
+        // printk("DEBUG: allocPage free_list empty, calling swap_out()\n");
         swap_out(); 
         spin_lock_acquire(&os_mm_lock);
     }
@@ -195,13 +195,13 @@ void swap_out() {
         printk("FATAL: swap_out victim->pte is NULL! pa=0x%lx\n", victim->pa);
     }
 
-    printk("DEBUG: swap_out victim pa=0x%lx va=0x%lx slot=%d\n", victim->pa, victim->va, slot);
+    // printk("DEBUG: swap_out victim pa=0x%lx va=0x%lx slot=%d\n", victim->pa, victim->va, slot);
 
     uint64_t sector = get_swap_sector(slot);
     
     bios_sd_write(pa2kva(victim->pa), SECTORS_PER_PAGE, sector);
     
-    printk("DEBUG: swap_out write done for slot=%d\n", slot);
+    // printk("DEBUG: swap_out write done for slot=%d\n", slot);
 
     // 3. 回收物理页 (手动执行 freePage 的逻辑，因为我们已经持有锁)
     victim->va = 0;
@@ -218,7 +218,7 @@ void swap_in(PTE *pte, uintptr_t va) {
     int slot = pte_val >> 10;
     uint64_t sector = get_swap_sector(slot);
 
-    printk("DEBUG: swap_in slot=%d va=0x%lx\n", slot, va);
+    // printk("DEBUG: swap_in slot=%d va=0x%lx\n", slot, va);
 
     ptr_t new_pa = allocPage(1); 
 

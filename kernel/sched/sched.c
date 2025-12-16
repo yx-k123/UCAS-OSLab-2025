@@ -11,6 +11,7 @@
 #include <os/loader.h>
 #include <os/string.h>
 #include <os/smp.h>
+#include <csr.h>
 
 pcb_t * current_running[CPU_CORE_NUM];
 
@@ -29,6 +30,8 @@ pcb_t s_pid0_pcb = {
     .user_sp = (ptr_t)s_pid0_stack
 };
 
+spin_lock_t sched_lock = {UNLOCKED};
+
 LIST_HEAD(ready_queue);
 LIST_HEAD(sleep_queue);
 
@@ -39,6 +42,10 @@ void do_scheduler(void)
 {
     uint64_t cpu_id = get_current_cpu_id();
     pcb_t *prev = current_running[cpu_id];
+
+    uint64_t old_status = get_sstatus();
+    set_sstatus(old_status & ~SR_SIE);
+    spin_lock_acquire(&sched_lock);
 
     if (!list_empty(&ready_queue)) {
         list_node_t *next_node = ready_queue.next;
@@ -56,6 +63,9 @@ void do_scheduler(void)
             current_running[cpu_id] = &s_pid0_pcb;
         }
     }
+
+    spin_lock_release(&sched_lock);
+    set_sstatus(old_status);
 
     pcb_t *next = current_running[cpu_id];
 
@@ -86,9 +96,18 @@ void do_sleep(uint32_t sleep_time)
     // 1. block the current_running
     // 2. set the wake up time for the blocked task
     // 3. reschedule because the current_running is blocked.
+    
+    uint64_t old_status = get_sstatus();
+    set_sstatus(old_status & ~SR_SIE);
+    spin_lock_acquire(&sched_lock);
+
     current_running[cpu_id]->status = TASK_BLOCKED;
     list_add_tail(&current_running[cpu_id]->list, &sleep_queue);
     current_running[cpu_id]->wakeup_time = get_timer() + sleep_time;
+
+    spin_lock_release(&sched_lock);
+    set_sstatus(old_status);
+
     do_scheduler();
 }
 
@@ -103,10 +122,18 @@ void do_block(list_node_t *pcb_node, list_head *queue)
 void do_unblock(list_node_t *pcb_node)
 {
     // TODO: [p2-task2] unblock the `pcb` from the block queue
+    
+    uint64_t old_status = get_sstatus();
+    set_sstatus(old_status & ~SR_SIE);
+    spin_lock_acquire(&sched_lock);
+
     pcb_t *pcb = list_entry(pcb_node, pcb_t, list);                         // get pcb from pcb_node
     pcb->status = TASK_READY;                                               // change status to READY
     list_del(pcb_node);                                              // remove from block queue
     list_add_tail(pcb_node, &ready_queue);                   // add to ready_queue
+
+    spin_lock_release(&sched_lock);
+    set_sstatus(old_status);
 }
 
 pid_t do_exec(char *name, int argc, char **argv)
@@ -219,7 +246,14 @@ pid_t do_exec(char *name, int argc, char **argv)
     init_pcb_stack(p->kernel_sp, p->user_sp, entry, p, argc, (char **)user_sp_new);
 
     // 7. 加入 ready_queue
+    uint64_t old_status = get_sstatus();
+    set_sstatus(old_status & ~SR_SIE);
+    spin_lock_acquire(&sched_lock);
+
     list_add_tail(&p->list, &ready_queue);
+
+    spin_lock_release(&sched_lock);
+    set_sstatus(old_status);
 
     printk("DEBUG: do_exec success pid=%d name=%s\n", p->pid, k_taskname);
 

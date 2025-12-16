@@ -17,6 +17,7 @@ void init_locks(void)
         spin_lock_init(&mlocks[i].lock);
         init_list_head(&mlocks[i].block_queue);
         mlocks[i].key = -1;
+        mlocks[i].pid = -1;
     }
 }
 
@@ -68,6 +69,7 @@ int do_mutex_lock_init(int key)
             spin_lock_init(&mlocks[i].lock);
             init_list_head(&mlocks[i].block_queue);
             mlocks[i].key = key;
+            mlocks[i].pid = -1;
             return i;
         }
     }
@@ -79,12 +81,16 @@ void do_mutex_lock_acquire(int mlock_idx)
 {   
     uint64_t cpu_id = get_current_cpu_id();
     mutex_lock_t *mlock = &mlocks[mlock_idx];
-    if (spin_lock_try_acquire(&mlock->lock)) {
+
+    spin_lock_acquire(&mlock->lock);
+
+    if (mlock->pid == -1) {
         mlock->pid = current_running[cpu_id]->pid;
-        return;
+        spin_lock_release(&mlock->lock);
     } else {
         current_running[cpu_id]->status = TASK_BLOCKED;
         do_block(&current_running[cpu_id]->list, &mlock->block_queue);
+        spin_lock_release(&mlock->lock);
         do_scheduler();
     } 
 }
@@ -93,17 +99,23 @@ void do_mutex_lock_release(int mlock_idx)
 {   
     uint64_t cpu_id = get_current_cpu_id();
     mutex_lock_t *mlock = &mlocks[mlock_idx];
+
+    spin_lock_acquire(&mlock->lock);
+
     if (mlock->pid != current_running[cpu_id]->pid) {
+        spin_lock_release(&mlock->lock);
         return;
     }
-    mlock->pid = -1;  
+
     if (list_empty(&mlock->block_queue)) {
-        spin_lock_release(&mlock->lock);
+        mlock->pid = -1;
     } else {
         mlock->pid = list_entry(mlock->block_queue.next, pcb_t, list)->pid;
         list_node_t* next_node = mlock->block_queue.next;
         do_unblock(next_node);
     }
+    
+    spin_lock_release(&mlock->lock);
 }
 
 void init_barriers(void){

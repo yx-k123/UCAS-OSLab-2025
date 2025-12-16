@@ -77,7 +77,7 @@ void handle_page_fault(regs_context_t *regs, uint64_t stval, uint64_t scause)
     uintptr_t pgdir = current_running[get_current_cpu_id()]->pgdir;
 
     // DEBUG: Print fault info
-    printk("Page Fault: addr=0x%lx, scause=%lu, sepc=0x%lx\n", fault_addr, scause, regs->sepc);
+    // printk("Page Fault: addr=0x%lx, scause=%lu, sepc=0x%lx\n", fault_addr, scause, regs->sepc);
 
     // 1. 获取对应虚拟地址的页表项 (PTE) 指针
     PTE *pte = get_pte(pgdir, fault_addr);
@@ -86,13 +86,13 @@ void handle_page_fault(regs_context_t *regs, uint64_t stval, uint64_t scause)
     // 条件：PTE 存在 + Valid 位是 0 + 内容不为 0 (说明存了磁盘 slot 号)
     if (pte != NULL && !(*pte & _PAGE_PRESENT) && (*pte != 0)) {
         // 执行换入逻辑：分配内存 -> 读盘 -> 恢复PTE -> 加入FIFO队列
-        printk("DEBUG: Page Fault Swap In: addr=0x%lx pte=0x%lx\n", fault_addr, *pte);
+        // printk("DEBUG: Page Fault Swap In: addr=0x%lx pte=0x%lx\n", fault_addr, *pte);
         swap_in(pte, fault_addr); 
     }
     // 3. 判断是否是【首次访问/按需分配 (Lazy Allocation)】情况
     // 条件：PTE 不存在 或者 内容全为 0
     else {
-        printk("DEBUG: Page Fault Lazy Alloc: addr=0x%lx\n", fault_addr);
+        // printk("DEBUG: Page Fault Lazy Alloc: addr=0x%lx\n", fault_addr);
         alloc_page_helper(fault_addr, pgdir);
     }
 

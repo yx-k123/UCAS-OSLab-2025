@@ -179,6 +179,8 @@ void init_pcb_stack(
 
 static void init_pcb(void)
 {
+    spin_lock_init(&sched_lock);
+
     /* TODO: [p2-task1] load needed tasks and init their corresponding PCB */
 
     pid0_pcb.pid = 0;

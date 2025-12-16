@@ -32,6 +32,7 @@
 #include <type.h>
 #include <os/list.h>
 #include <csr.h>
+#include <os/lock.h>
 
 #define NUM_MAX_TASK 16
 #define CPU_CORE_NUM 2
@@ -101,6 +102,8 @@ extern list_head ready_queue;
 
 /* sleep queue to be blocked in */
 extern list_head sleep_queue;
+
+extern spin_lock_t sched_lock;
 
 /* current running task PCB */
 extern pcb_t * current_running[CPU_CORE_NUM];
