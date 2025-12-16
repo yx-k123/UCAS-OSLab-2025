@@ -49,7 +49,7 @@ static inline int bios_getchar(void)
     return call_jmptab(CONSOLE_GETCHAR, 0, 0, 0, 0, 0);
 }
 
-static inline int bios_sd_read(unsigned mem_address, unsigned num_of_blocks, \
+static inline int bios_sd_read(uintptr_t mem_address, unsigned num_of_blocks, \
                               unsigned block_id)
 {
     return call_jmptab(SD_READ, (long)mem_address, (long)num_of_blocks, \
@@ -58,7 +58,7 @@ static inline int bios_sd_read(unsigned mem_address, unsigned num_of_blocks, \
 
 /************************************************************/
 
-static inline int bios_sd_write(unsigned mem_address, unsigned num_of_blocks, \
+static inline int bios_sd_write(uintptr_t mem_address, unsigned num_of_blocks, \
                               unsigned block_id)
 {
     return call_jmptab(SD_WRITE, (long)mem_address, (long)num_of_blocks, \

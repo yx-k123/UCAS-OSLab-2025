@@ -6,6 +6,8 @@
 #ifndef CSR_H
 #define CSR_H
 
+#define uint64_t unsigned long
+
 /* Status register flags */
 #define SR_SIE    0x00000002 /* Supervisor Interrupt Enable */
 #define SR_SPIE   0x00000020 /* Previous Supervisor IE */
@@ -77,5 +79,26 @@
 #define CSR_INSTRETH    0xc82
 
 #define CSR_MHARTID 0xf14
+
+#ifndef __ASSEMBLER__
+static inline uint64_t get_sstatus(void)
+{
+    uint64_t x;
+    // csrr: Control and Status Register Read
+    // %0: 输出操作数 (x)
+    // sstatus: 源寄存器
+    __asm__ volatile("csrr %0, sstatus" : "=r" (x) );
+    return x;
+}
+
+// 写入 sstatus 寄存器的值
+static inline void set_sstatus(uint64_t x)
+{
+    // csrw: Control and Status Register Write
+    // sstatus: 目标寄存器
+    // %0: 输入操作数 (x)
+    __asm__ volatile("csrw sstatus, %0" : : "r" (x));
+}
+#endif
 
 #endif /* CSR_H */

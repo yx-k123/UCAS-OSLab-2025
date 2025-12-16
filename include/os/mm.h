@@ -84,15 +84,14 @@ typedef struct frame {
     PTE        *pte;     // 指向页表项
 } frame_t;
 
-#define MAX_PHY_PAGES 8
+#define MAX_PHY_PAGES 32
 extern frame_t frame_table[MAX_PHY_PAGES];
-extern list_head fifo_queue;
+extern list_head clock_queue;
 extern list_head free_list;
 
 void pmm_init();
 void swap_out();
 void swap_in(PTE *pte, uintptr_t va);
-void do_page_fault(uint64_t stval, uint64_t scause);
 
 // 假设 SD 卡从第 20000 个扇区开始用作 swap，避免覆盖内核或文件系统
 #define SWAP_START_SEC 20000

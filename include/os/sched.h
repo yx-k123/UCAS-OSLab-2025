@@ -31,6 +31,7 @@
 
 #include <type.h>
 #include <os/list.h>
+#include <csr.h>
 
 #define NUM_MAX_TASK 16
 #define CPU_CORE_NUM 2
