@@ -302,6 +302,9 @@ int main(void)
         init_syscall();
         printk("> [INIT] System call initialized successfully.\n");
 
+        pmm_init();
+        printk("> [INIT] Physical memory manager initialization succeeded.\n");
+
         // Init screen (QAQ)
         init_screen();
         printk("> [INIT] SCREEN initialization succeeded.\n");
@@ -312,19 +315,19 @@ int main(void)
 
         // Infinite while loop, where CPU stays in a low-power state (QAQQQQQQQQQQQ)
         unlock_kernel();
-        wakeup_other_hart();
-        while (!cpu1_ready);
-        lock_kernel();
-        cancel_mapping();
+        // wakeup_other_hart();
+        // while (!cpu1_ready);  // this logic has some problem, need fix but how?
+        // lock_kernel();
+        // cancel_mapping();
         // cpu_id = 0;
         current_running[curr_cpu_id]->status = TASK_RUNNING;
     } 
-    else {
-        cpu1_ready = 1;
-        lock_kernel();
-        // cpu_id = 1;
-        current_running[curr_cpu_id]->status = TASK_RUNNING;
-    }
+    // else {
+    //     cpu1_ready = 1;
+    //     lock_kernel();
+    //     // cpu_id = 1;
+    //     current_running[curr_cpu_id]->status = TASK_RUNNING;
+    // }
 
     setup_exception();
 

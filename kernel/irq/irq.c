@@ -73,12 +73,26 @@ void init_exception()
 
 void handle_page_fault(regs_context_t *regs, uint64_t stval, uint64_t scause)
 {
-    // p4-t2
     uintptr_t fault_addr = stval;
     uintptr_t pgdir = current_running[get_current_cpu_id()]->pgdir;
-    alloc_page_helper(fault_addr, pgdir);
-    local_flush_tlb_all();
-    return;
+
+    // 1. 获取对应虚拟地址的页表项 (PTE) 指针
+    PTE *pte = get_pte(pgdir, fault_addr);
+
+    // 2. 判断是否是【换入 (Swap In)】情况
+    // 条件：PTE 存在 + Valid 位是 0 + 内容不为 0 (说明存了磁盘 slot 号)
+    if (pte != NULL && !(*pte & _PAGE_PRESENT) && (*pte != 0)) {
+        // 执行换入逻辑：分配内存 -> 读盘 -> 恢复PTE -> 加入FIFO队列
+        swap_in(pte, fault_addr); 
+    }
+    // 3. 判断是否是【首次访问/按需分配 (Lazy Allocation)】情况
+    // 条件：PTE 不存在 或者 内容全为 0
+    else {
+        alloc_page_helper(fault_addr, pgdir);
+    }
+
+    // 4. 刷新 TLB
+    local_flush_tlb_all(); 
 }
 
 void handle_other(regs_context_t *regs, uint64_t stval, uint64_t scause)

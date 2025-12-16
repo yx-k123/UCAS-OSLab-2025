@@ -112,6 +112,7 @@ void do_unblock(list_node_t *pcb_node)
 pid_t do_exec(char *name, int argc, char **argv)
 {
     int idx = -1;
+    // 寻找空闲的 PCB
     for (int i = 0; i < NUM_MAX_TASK; ++i) {
         if (pcb[i].status == TASK_EXITED) {
             idx = i;
@@ -123,37 +124,43 @@ pid_t do_exec(char *name, int argc, char **argv)
 
     pcb_t *p = &pcb[idx];
 
-    // 1. 分配用户页表根页
-    uintptr_t new_pgdir = allocPage(1);      // 返回 KVA
-    memset((void *)new_pgdir, 0, PAGE_SIZE);
+    // 1. 分配用户页表根页 (Alloc Page Directory)
+    ptr_t pgdir_pa = allocPage(1);
+    uintptr_t pgdir_kva = pa2kva(pgdir_pa);
 
-    // 2. 拷贝内核映射
-    share_pgtable(new_pgdir, pa2kva(PGDIR_PA));
-    p->pgdir = (uintptr_t)new_pgdir;
+    // 2. 拷贝内核映射 (Share Kernel Mapping)
+    share_pgtable(pgdir_kva, pa2kva(PGDIR_PA));
+    p->pgdir = pgdir_kva; // PCB 中存储 KVA，方便 do_scheduler 访问
 
-    // 3. 加载程序到这个 pgdir
-    uint64_t entry = load_task_img(name, new_pgdir);
-    if (!entry)
+    // 3. 加载程序 (Load Task Image)
+    uint64_t entry = load_task_img(name, pgdir_kva);
+    if (!entry) {
+        // 简单错误处理：如果加载失败，这里理想情况应释放上面申请的页表
         return -1;
+    }
 
-    // 4. 分配内核栈
-    p->kernel_sp = allocPage(1) + PAGE_SIZE;
+    // 4. 分配内核栈 (Alloc Kernel Stack)
+    ptr_t kstack_pa = allocPage(1);
+    uintptr_t kstack_kva = pa2kva(kstack_pa);
+    p->kernel_sp = kstack_kva + PAGE_SIZE;    // 栈顶 (KVA)
 
-    // 5. 分配用户栈（这里先映射 1 页；若 argv 很大需多页）
+    // 5. 分配用户栈 (Alloc User Stack)
     uintptr_t user_stack_top = USER_STACK_ADDR;
-    uintptr_t ustack_kva_base = alloc_page_helper(user_stack_top - PAGE_SIZE, new_pgdir);
-    p->user_sp = user_stack_top;
+    // alloc_page_helper 已经返回 KVA，可以直接使用
+    uintptr_t ustack_kva_base = alloc_page_helper(user_stack_top - PAGE_SIZE, pgdir_kva);
+    memset((void *)ustack_kva_base, 0, PAGE_SIZE);
 
-    // 5.1 将 argv 与字符串拷到用户栈
+    // 5.1 处理 argv (Copy argv to user stack)
     // 栈从高地址向低地址增长
     uintptr_t sp_kva = ustack_kva_base + PAGE_SIZE;
 
-    // 先拷贝各字符串，记录其用户地址
+    // 记录参数在用户空间(UVA)的地址
     uintptr_t argv_uva_arr[argc + 1];
+    
+    // 从后往前压入字符串
     for (int i = argc - 1; i >= 0; --i) {
         size_t len = strlen(argv[i]) + 1;    // 含 '\0'
         sp_kva -= len;
-        // 简单对齐可选：不要求对齐字符串
         memcpy((void *)sp_kva, argv[i], len);
 
         // 由 KVA 偏移换算回 UVA
@@ -162,16 +169,18 @@ pid_t do_exec(char *name, int argc, char **argv)
     }
     argv_uva_arr[argc] = 0; // argv 终止 NULL
 
-    // 让栈 16 字节对齐（RISC-V ABI）
+    // 16 字节对齐（RISC-V ABI要求栈对齐）
     sp_kva &= ~((uintptr_t)0xF);
 
     // 再压入 argv 指针数组
     sp_kva -= (argc + 1) * sizeof(uintptr_t);
     memcpy((void *)sp_kva, (void *)argv_uva_arr, (argc + 1) * sizeof(uintptr_t));
 
-    // 计算此时用户态的 argv 数组地址与新的用户栈顶
-    uintptr_t argv_uva = (user_stack_top - PAGE_SIZE) + (sp_kva - ustack_kva_base);
-    uintptr_t user_sp_new = (user_stack_top - PAGE_SIZE) + (sp_kva - ustack_kva_base);
+    // 计算此时用户态的 argv 数组地址（作为 main 的第二个参数）
+    // 也就是当前的栈顶
+    uintptr_t offset_final = sp_kva - ustack_kva_base;
+    uintptr_t user_sp_new = (user_stack_top - PAGE_SIZE) + offset_final;
+    
     p->user_sp = user_sp_new;
 
     // 6. 初始化 PCB 其他字段
@@ -183,8 +192,9 @@ pid_t do_exec(char *name, int argc, char **argv)
     init_list_head(&p->wait_list);
 
     // 建立初始内核栈上的寄存器上下文
-    // a0=argc, a1=argv(uva)
-    init_pcb_stack(p->kernel_sp, p->user_sp, entry, p, argc, (char **)argv_uva);
+    // a0 = argc
+    // a1 = argv (即 user_sp_new，指向 argv 指针数组的起始地址)
+    init_pcb_stack(p->kernel_sp, p->user_sp, entry, p, argc, (char **)user_sp_new);
 
     // 7. 加入 ready_queue
     list_add_tail(&p->list, &ready_queue);

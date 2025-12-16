@@ -26,8 +26,14 @@
 #ifndef MM_H
 #define MM_H
 
+#include "os/list.h"
 #include <type.h>
 #include <pgtable.h>
+#include <assert.h>
+#include <common.h>
+#include <os/sched.h>
+#include <os/smp.h>
+#include <os/string.h>
 
 #define MAP_KERNEL 1
 #define MAP_USER 2
@@ -64,6 +70,42 @@ extern uintptr_t alloc_page_helper(uintptr_t va, uintptr_t pgdir);
 uintptr_t shm_page_get(int key);
 void shm_page_dt(uintptr_t addr);
 
+typedef struct frame {
+    list_node_t qnode;   // FIFO 队列节点
+    
+    uintptr_t   pa;      // 该帧对应的物理地址 (用于 sd_write)
+    uintptr_t   va;      // 对应的虚拟地址
+    
+    // 进程标识
+    // 存 asid 或者 pgdir 都可以，主要用于 flush_tlb 时区分是哪个进程的
+    uintptr_t   pgdir;   
+    
+    // 核心指针
+    PTE        *pte;     // 指向页表项
+} frame_t;
 
+#define MAX_PHY_PAGES 8
+extern frame_t frame_table[MAX_PHY_PAGES];
+extern list_head fifo_queue;
+extern list_head free_list;
+
+void pmm_init();
+void swap_out();
+void swap_in(PTE *pte, uintptr_t va);
+void do_page_fault(uint64_t stval, uint64_t scause);
+
+// 假设 SD 卡从第 20000 个扇区开始用作 swap，避免覆盖内核或文件系统
+#define SWAP_START_SEC 20000
+// 每个页需要 8 个扇区 (4096 / 512 = 8)
+#define SECTORS_PER_PAGE 8
+
+// 简单的 swap 槽位分配器 (你可以用位图优化，这里用简单的计数器演示)
+static int swap_idx = 0;
+int alloc_swap_slot();
+
+// 根据槽位号计算 SD 卡扇区号
+uint64_t get_swap_sector(int slot);
+
+PTE *get_pte(uintptr_t pgdir, uintptr_t va);
 
 #endif /* MM_H */
