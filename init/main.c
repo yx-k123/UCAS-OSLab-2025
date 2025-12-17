@@ -179,9 +179,7 @@ void init_pcb_stack(
 
 static void init_pcb(void)
 {
-    spin_lock_init(&sched_lock);
-
-    /* TODO: [p2-task1] load needed tasks and init their corresponding PCB */
+    /* initialize all of your pcb and add them into ready_queue */
 
     pid0_pcb.pid = 0;
     pid0_pcb.user_sp = (ptr_t)pid0_stack;

@@ -192,8 +192,8 @@ image: $(ELF_CREATEIMAGE) $(ELF_BOOT) $(ELF_MAIN) $(ELF_USER)
 	cd $(DIR_BUILD) && ./$(<F) --extended $(filter-out $(<F), $(^F))
 
 pad-image: image
-	@([ -f $(DIR_BUILD)/.padded ] && echo "Image already padded, skip.") || ( echo "Padding $(ELF_IMAGE) by 64MB..."; \
-	dd if=/dev/zero of=$(ELF_IMAGE) oflag=append conv=notrunc bs=64MB count=1; \
+	@([ -f $(DIR_BUILD)/.padded ] && echo "Image already padded, skip.") || ( echo "Padding $(ELF_IMAGE) by 16MB..."; \
+	dd if=/dev/zero of=$(ELF_IMAGE) oflag=append conv=notrunc bs=16MB count=1; \
 	touch $(DIR_BUILD)/.padded )
 
 .PHONY: image

@@ -49,6 +49,7 @@
 extern ptr_t allocPage(int numPage);
 // TODO [P4-task1] */
 void freePage(ptr_t baseAddr);
+void free_page_helper(uintptr_t pgdir);
 
 // #define S_CORE
 // NOTE: only need for S-core to alloc 2MB large page
@@ -84,7 +85,7 @@ typedef struct frame {
     PTE        *pte;     // 指向页表项
 } frame_t;
 
-#define MAX_PHY_PAGES 100
+#define MAX_PHY_PAGES 32
 extern frame_t frame_table[MAX_PHY_PAGES];
 extern list_head clock_queue;
 extern list_head free_list;
@@ -98,7 +99,7 @@ void swap_in(PTE *pte, uintptr_t va);
 // 每个页需要 8 个扇区 (4096 / 512 = 8)
 #define SECTORS_PER_PAGE 8
 
-// 简单的 swap 槽位分配器 (你可以用位图优化，这里用简单的计数器演示)
+// 简单的 swap 槽位分配器
 static int swap_idx = 0;
 int alloc_swap_slot();
 

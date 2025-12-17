@@ -34,8 +34,6 @@ void latency(uint64_t time)
 void check_sleeping(void)
 {
     // TODO: [p2-task3] Pick out tasks that should wake up from the sleep queue
-    spin_lock_acquire(&sched_lock);
-
     list_head *head = &sleep_queue;
     list_node_t *node = head->next;
     while (node != head) {
@@ -48,6 +46,4 @@ void check_sleeping(void)
         }
         node = next_node;
     }
-
-    spin_lock_release(&sched_lock);
 }

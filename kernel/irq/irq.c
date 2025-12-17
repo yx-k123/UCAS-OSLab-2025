@@ -82,6 +82,12 @@ void handle_page_fault(regs_context_t *regs, uint64_t stval, uint64_t scause)
     // 1. 获取对应虚拟地址的页表项 (PTE) 指针
     PTE *pte = get_pte(pgdir, fault_addr);
 
+    if (pte != NULL && (*pte & _PAGE_PRESENT)) {
+        printk("FATAL: Page Fault on present page! addr=0x%lx, pte=0x%lx, scause=%lu, sepc=0x%lx\n", 
+               fault_addr, *pte, scause, regs->sepc);
+        assert(0);
+    }
+
     // 2. 判断是否是【换入 (Swap In)】情况
     // 条件：PTE 存在 + Valid 位是 0 + 内容不为 0 (说明存了磁盘 slot 号)
     if (pte != NULL && !(*pte & _PAGE_PRESENT) && (*pte != 0)) {

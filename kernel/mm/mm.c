@@ -115,6 +115,39 @@ void freePage(ptr_t baseAddr)
     spin_lock_release(&os_mm_lock);
 }
 
+void free_page_helper(uintptr_t pgdir)
+{
+    PTE *pgd = (PTE *)pgdir;
+
+    // Iterate over user space PGD entries (0 to NUM_PTE_ENTRY/2)
+    for (int i = 0; i < NUM_PTE_ENTRY / 2; i++) {
+        if (pgd[i] & _PAGE_PRESENT) {
+            PTE *pmd = (PTE *)pa2kva(get_pa(pgd[i]));
+            
+            // Iterate over PMD entries
+            for (int j = 0; j < NUM_PTE_ENTRY; j++) {
+                if (pmd[j] & _PAGE_PRESENT) {
+                    PTE *pte = (PTE *)pa2kva(get_pa(pmd[j]));
+                    
+                    // Iterate over PTE entries
+                    for (int k = 0; k < NUM_PTE_ENTRY; k++) {
+                        if (pte[k] & _PAGE_PRESENT) {
+                            // Free user page
+                            freePage(get_pa(pte[k]));
+                        }
+                    }
+                    // Free PTE table page
+                    freePage(get_pa(pmd[j]));
+                }
+            }
+            // Free PMD table page
+            freePage(get_pa(pgd[i]));
+        }
+    }
+    // Free PGD table page
+    freePage(kva2pa(pgdir));
+}
+
 void swap_out() {
     spin_lock_acquire(&os_mm_lock);
 
@@ -143,6 +176,8 @@ void swap_out() {
                 // 如果被访问过，清除 Accessed 位，并将其移到队尾（给予第二次机会）
                 *victim->pte &= ~_PAGE_ACCESSED;
                 
+                printk("Clock: PFN %ld (VA 0x%lx) is hot, skip it.\n", victim->pa >> NORMAL_PAGE_SHIFT, victim->va);
+
                 list_node_t *next_node = node->next;
                 list_del(node);
                 list_add_tail(node, &clock_queue);
@@ -171,7 +206,16 @@ void swap_out() {
         victim = (frame_t *)node;
     }
 
+    // 再次检查 victim 是否有效
+    if (victim == NULL) {
+        spin_lock_release(&os_mm_lock);
+        printk("FATAL: victim is NULL!\n");
+        assert(0);
+    }
+
     list_del(node); // Remove from queue inside lock
+
+    printk("swap out :%ld (VA 0x%lx)\n", victim->pa >> NORMAL_PAGE_SHIFT, victim->va);
 
     int slot = alloc_swap_slot();
     
@@ -192,7 +236,12 @@ void swap_out() {
         local_flush_tlb_all();
         local_flush_icache_all();
     } else {
+        // 如果 pte 为 NULL，说明这个 frame 可能没有被正确映射，或者已经被释放了
+        // 但它还在 clock_queue 中，这是一种不一致状态
         printk("FATAL: swap_out victim->pte is NULL! pa=0x%lx\n", victim->pa);
+        // 尝试恢复
+        // spin_lock_release(&os_mm_lock);
+        // return;
     }
 
     // printk("DEBUG: swap_out victim pa=0x%lx va=0x%lx slot=%d\n", victim->pa, victim->va, slot);
@@ -226,6 +275,7 @@ void swap_in(PTE *pte, uintptr_t va) {
 
     spin_lock_acquire(&os_mm_lock);
 
+    // 再次检查 PTE，防止并发 swap_in
     if (*pte & _PAGE_PRESENT) {
         spin_lock_release(&os_mm_lock);
         freePage(new_pa);
@@ -246,12 +296,6 @@ void swap_in(PTE *pte, uintptr_t va) {
 
     list_add_tail(&frame->qnode, &clock_queue);
     
-    // DEBUG: Print clock_queue size
-    int q_size = 0;
-    list_node_t *curr = clock_queue.next;
-    while(curr != &clock_queue) { q_size++; curr = curr->next; }
-    // printk("DEBUG: clock_queue size=%d\n", q_size);
-
     spin_lock_release(&os_mm_lock);
 
     local_flush_tlb_all();
