@@ -30,64 +30,54 @@ void memmove(uint8_t *dest, const uint8_t *src, int len) {
     }
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     int total_len = 0;
-    int file_size = 0;
-    int received_bytes = 0;
-    
-    // 分配大缓冲区用于存储整个文件（或者分块计算校验和）
-    // 为了简化，这里假设内存足够存下整个文件，或者你可以边收边算
-    // 这里演示先接收一部分解析头部，然后继续接收
+    int file_size = 0x7FFFFFFF; // 默认接收无限多
+    int use_size_header = 0;
+
+    // 如果指定了参数，则尝试解析大小头
+    if (argc > 1 && strcmp(argv[1], "-f") == 0) {
+        use_size_header = 1;
+    }
+
     static char buffer[RECV_BUF_SIZE]; 
     
     printf("Start receiving stream...\n");
 
-    // 1. 接收第一个包，解析文件大小
-    int nbytes = RECV_BUF_SIZE;
-    // 调用系统调用
-    sys_net_recv_stream(buffer, &nbytes);
+    while (1) {
+        int nbytes = RECV_BUF_SIZE; // 每次尝试接收最大缓冲区大小
+        sys_net_recv_stream(buffer, &nbytes);
 
-    if (nbytes >= 4) {
-        // 解析文件大小 (假设是小端序或者协议规定的字节序，这里假设本地字节序与协议一致或已转换)
-        // 协议中 seq 是 Big Endian，但 size 是应用层数据。
-        // 题目描述："size 域不属于报头，按照本地字节序处理"
-        file_size = *(int *)buffer;
-        printf("File size: %d bytes\n", file_size);
-        
-        // 除去前4字节的 size，剩下的都是文件内容
-        // 移动数据，覆盖掉 size，方便后续计算校验和（或者单独处理）
-        // 这里我们把 size 算作文件内容之外的元数据，不参与校验和计算
-        memmove(buffer, buffer + 4, nbytes - 4);
-        total_len = nbytes - 4;
-    } else {
-        printf("Error: First packet too small to contain size.\n");
-        return 0;
-    }
+        if (nbytes <= 0) {
+            // 暂时没有数据
+            continue;
+        }
 
-    // 2. 循环接收剩余数据
-    while (total_len < file_size) {
-        int wanted = RECV_BUF_SIZE - total_len;
-        // 如果缓冲区不够大，这里应该处理分块。为简化演示，假设缓冲区够大。
-        // 实际大文件传输建议：边接收边 update checksum，不存储整个文件。
+        // 处理第一个包的 Size 头
+        if (total_len == 0 && use_size_header) {
+            if (nbytes >= 4) {
+                file_size = *(int *)buffer;
+                printf("File size from header: %d bytes\n", file_size);
+                // 移除头部 4 字节
+                memmove(buffer, buffer + 4, nbytes - 4);
+                nbytes -= 4;
+            }
+        }
+
+        total_len += nbytes;
+        printf("Received %d bytes, Total: %d\n", nbytes, total_len);
+        if (use_size_header && total_len >= file_size) {
+            printf("Receive complete. Total %d bytes.\n", total_len);
+            printf("fletcher16 = %d", fletcher16((uint8_t *)buffer, nbytes));
+            return 0;
+        }
         
-        // 这里演示边接收边计算校验和的逻辑会更通用：
-        // 但为了简单，我们假设 pktRxTx 发送的文件不会超过 RECV_BUF_SIZE (64KB)
-        // 如果超过，请自行改为增量计算 sum1 和 sum2
-        
-        int ret_len = wanted;
-        sys_net_recv_stream(buffer + total_len, &ret_len);
-        
-        if (ret_len > 0) {
-            total_len += ret_len;
-            // printf("Received %d bytes, total %d/%d\n", ret_len, total_len, file_size);
+        if (total_len > 10 * 1024 * 1024) { // 10MB limit for test
+            printf("Limit reached.\n");
+            break;
         }
     }
 
     printf("Receive complete. Total %d bytes.\n", total_len);
-
-    // 3. 计算校验和
-    uint16_t checksum = fletcher16((uint8_t *)buffer, total_len);
-    printf("Fletcher-16 Checksum: 0x%04x\n", checksum);
-
     return 0;
 }
