@@ -4,6 +4,7 @@
 #include <os/string.h>
 #include <os/list.h>
 #include <os/smp.h>
+#include <printk.h>
 
 static LIST_HEAD(send_block_queue);
 static LIST_HEAD(recv_block_queue);
@@ -14,7 +15,16 @@ int do_net_send(void *txpacket, int length)
     // TODO: [p5-task3] Call do_block when e1000 transmit queue is full
     // TODO: [p5-task4] Enable TXQE interrupt if transmit queue is full
 
-    return 0;  // Bytes it has transmitted
+    while (1){
+        int ret = e1000_transmit(txpacket, length);
+        if (ret > 0) {
+            return ret;  // 成功发送，返回发送的字节数
+        } else {
+            // 发送队列满，循环等待或阻塞当前任务
+            // ...
+            printk("> [NET] Transmit queue full, retrying...\n");
+        }
+    }
 }
 
 int do_net_recv(void *rxbuffer, int pkt_num, int *pkt_lens)

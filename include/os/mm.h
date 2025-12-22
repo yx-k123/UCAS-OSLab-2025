@@ -85,7 +85,7 @@ typedef struct frame {
     PTE        *pte;     // 指向页表项
 } frame_t;
 
-#define MAX_PHY_PAGES 32
+#define MAX_PHY_PAGES 200
 extern frame_t frame_table[MAX_PHY_PAGES];
 extern list_head clock_queue;
 extern list_head free_list;

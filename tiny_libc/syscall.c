@@ -1,6 +1,5 @@
 #include <syscall.h>
 #include <stdint.h>
-#include <kernel.h>
 #include <unistd.h>
 
 static const long IGNORE = 0L;
@@ -210,29 +209,29 @@ void sys_condition_destroy(int cond_idx)
     invoke_syscall(SYSCALL_COND_DESTROY, (long)cond_idx, IGNORE, IGNORE, IGNORE, IGNORE);
 }
 
-int sys_semaphore_init(int key, int init)
-{
-    /* TODO: [p3-task2] call invoke_syscall to implement sys_semaphore_init */
-    return invoke_syscall(SYSCALL_SEMA_INIT, (long)key, (long)init, IGNORE, IGNORE, IGNORE);
-}
+// int sys_semaphore_init(int key, int init)
+// {
+//     /* TODO: [p3-task2] call invoke_syscall to implement sys_semaphore_init */
+//     return invoke_syscall(SYSCALL_SEMA_INIT, (long)key, (long)init, IGNORE, IGNORE, IGNORE);
+// }
 
-void sys_semaphore_up(int sema_idx)
-{
-    /* TODO: [p3-task2] call invoke_syscall to implement sys_semaphore_up */
-    invoke_syscall(SYSCALL_SEMA_UP, (long)sema_idx, IGNORE, IGNORE, IGNORE, IGNORE);
-}
+// void sys_semaphore_up(int sema_idx)
+// {
+//     /* TODO: [p3-task2] call invoke_syscall to implement sys_semaphore_up */
+//     invoke_syscall(SYSCALL_SEMA_UP, (long)sema_idx, IGNORE, IGNORE, IGNORE, IGNORE);
+// }
 
-void sys_semaphore_down(int sema_idx)
-{
-    /* TODO: [p3-task2] call invoke_syscall to implement sys_semaphore_down */
-    invoke_syscall(SYSCALL_SEMA_DOWN, (long)sema_idx, IGNORE, IGNORE, IGNORE, IGNORE);
-}
+// void sys_semaphore_down(int sema_idx)
+// {
+//     /* TODO: [p3-task2] call invoke_syscall to implement sys_semaphore_down */
+//     invoke_syscall(SYSCALL_SEMA_DOWN, (long)sema_idx, IGNORE, IGNORE, IGNORE, IGNORE);
+// }
 
-void sys_semaphore_destroy(int sema_idx)
-{
-    /* TODO: [p3-task2] call invoke_syscall to implement sys_semaphore_destroy */
-    invoke_syscall(SYSCALL_SEMA_DESTROY, (long)sema_idx, IGNORE, IGNORE, IGNORE, IGNORE);
-}
+// void sys_semaphore_destroy(int sema_idx)
+// {
+//     /* TODO: [p3-task2] call invoke_syscall to implement sys_semaphore_destroy */
+//     invoke_syscall(SYSCALL_SEMA_DESTROY, (long)sema_idx, IGNORE, IGNORE, IGNORE, IGNORE);
+// }
 
 int sys_mbox_open(char * name)
 {
@@ -261,12 +260,12 @@ int sys_mbox_recv(int mbox_idx, void *msg, int msg_length)
 int sys_net_send(void *txpacket, int length)
 {
     /* TODO: [p5-task1] call invoke_syscall to implement sys_net_send */
-    return 0;
+    return invoke_syscall(SYSCALL_NET_SEND, (long)txpacket, (long)length, IGNORE, IGNORE, IGNORE);
 }
 
 int sys_net_recv(void *rxbuffer, int pkt_num, int *pkt_lens)
 {
     /* TODO: [p5-task2] call invoke_syscall to implement sys_net_recv */
-    return 0;
+    return invoke_syscall(SYSCALL_NET_RECV, (long)rxbuffer, (long)pkt_num, (long)pkt_lens, IGNORE, IGNORE);
 }
 /************************************************************/

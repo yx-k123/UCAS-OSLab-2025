@@ -21,6 +21,7 @@
 #include <csr.h>
 #include <os/smp.h>
 #include <pgtable.h>
+#include <os/net.h>
 
 #define VERSION_BUF 50
 #define SECTOR_SIZE 512
@@ -243,6 +244,9 @@ static void init_syscall(void)
     syscall[SYSCALL_MBOX_CLOSE]   = (long (*)())do_mbox_close;
     syscall[SYSCALL_MBOX_SEND]    = (long (*)())do_mbox_send;
     syscall[SYSCALL_MBOX_RECV]    = (long (*)())do_mbox_recv;
+
+    syscall[SYSCALL_NET_SEND]    = (long (*)())do_net_send;
+    syscall[SYSCALL_NET_RECV]    = (long (*)())do_net_recv;
 }
 /************************************************************/
 
@@ -258,12 +262,17 @@ int main(void)
 
         // Init task information (〃'▽'〃)
         init_task_info();
-
-        print_task_names();
         
+        // Init Process Control Blocks |•'-'•) ✧
+        init_pcb();
+        printk("> [INIT] PCB initialization succeeded.\n");
+
+        pmm_init();
+        printk("> [INIT] Physical memory manager initialization succeeded.\n");
+
         // Read Flatten Device Tree (｡•ᴗ-)_
         time_base = bios_read_fdt(TIMEBASE);
-        e1000 = (volatile uint8_t *)bios_read_fdt(EHTERNET_ADDR);
+        e1000 = (volatile uint8_t *)bios_read_fdt(ETHERNET_ADDR);
         uint64_t plic_addr = bios_read_fdt(PLIC_ADDR);
         uint32_t nr_irqs = (uint32_t)bios_read_fdt(NR_IRQS);
         printk("> [INIT] e1000: %lx, plic_addr: %lx, nr_irqs: %lx.\n", e1000, plic_addr, nr_irqs);
@@ -272,17 +281,6 @@ int main(void)
         plic_addr = (uintptr_t)ioremap((uint64_t)plic_addr, 0x4000 * NORMAL_PAGE_SIZE);
         e1000 = (uint8_t *)ioremap((uint64_t)e1000, 8 * NORMAL_PAGE_SIZE);
         printk("> [INIT] IOremap initialization succeeded.\n");
-
-        // Output 'Hello OS!', bss check result and OS version
-        char output_str[] = "bss check: _ version: _\n\r";
-        char output_val[2] = {0};
-        int i, output_val_pos = 0;
-        // Init Process Control Blocks |•'-'•) ✧
-        init_pcb();
-        printk("> [INIT] PCB initialization succeeded.\n");
-
-        // Read CPU frequency (｡•ᴗ-)_
-        time_base = bios_read_fdt(TIMEBASE);
 
         // Init lock mechanism o(´^｀)o
         init_locks();
@@ -316,9 +314,6 @@ int main(void)
         init_syscall();
         printk("> [INIT] System call initialized successfully.\n");
 
-        pmm_init();
-        printk("> [INIT] Physical memory manager initialization succeeded.\n");
-
         // Init screen (QAQ)
         init_screen();
         printk("> [INIT] SCREEN initialization succeeded.\n");
@@ -329,19 +324,8 @@ int main(void)
 
         // Infinite while loop, where CPU stays in a low-power state (QAQQQQQQQQQQQ)
         unlock_kernel();
-        // wakeup_other_hart();
-        // while (!cpu1_ready);  // this logic has some problem, need fix but how?
-        // lock_kernel();
-        // cancel_mapping();
-        // cpu_id = 0;
         current_running[curr_cpu_id]->status = TASK_RUNNING;
-    } 
-    // else {
-    //     cpu1_ready = 1;
-    //     lock_kernel();
-    //     // cpu_id = 1;
-    //     current_running[curr_cpu_id]->status = TASK_RUNNING;
-    // }
+    }
 
     setup_exception();
 
