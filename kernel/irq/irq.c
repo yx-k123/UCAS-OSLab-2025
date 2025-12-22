@@ -9,6 +9,9 @@
 #include <screen.h>
 #include <os/smp.h>
 #include <os/mm.h>
+#include <plic.h>
+#include <e1000.h>
+#include <os/net.h>
 
 handler_t irq_table[IRQC_COUNT];
 handler_t exc_table[EXCC_COUNT];
@@ -45,6 +48,16 @@ void handle_irq_ext(regs_context_t *regs, uint64_t stval, uint64_t scause)
 {
     // TODO: [p5-task4] external interrupt handler.
     // Note: plic_claim and plic_complete will be helpful ...
+    // 获取当前挂起的中断源 ID
+    uint32_t claim_id = plic_claim();
+    // if (claim_id) printk("IRQ %d\n", claim_id);
+    // 判断是否是 E1000 的中断
+    if(claim_id == PLIC_E1000_PYNQ_IRQ || claim_id == PLIC_E1000_QEMU_IRQ){
+        net_handle_irq();
+    } else {
+        handle_other(regs, stval, scause);
+    }
+    plic_complete(claim_id);
 }
 
 void init_exception()
@@ -69,9 +82,9 @@ void init_exception()
     irq_table[IRQC_U_TIMER] = handle_other;
     irq_table[IRQC_S_TIMER] = handle_irq_timer;
     irq_table[IRQC_M_TIMER] = handle_other;
-    irq_table[IRQC_U_EXT] = handle_other;
-    irq_table[IRQC_S_EXT] = handle_other;
-    irq_table[IRQC_M_EXT] = handle_other;
+    irq_table[IRQC_U_EXT] = handle_irq_ext;
+    irq_table[IRQC_S_EXT] = handle_irq_ext;
+    irq_table[IRQC_M_EXT] = handle_irq_ext;
 
     /* TODO: [p2-task3] set up the entrypoint of exceptions */
     // setup_exception();

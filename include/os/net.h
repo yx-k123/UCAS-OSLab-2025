@@ -18,5 +18,7 @@ struct ethhdr {
 void net_handle_irq(void);
 int do_net_recv(void *rxbuffer, int pkt_num, int *pkt_lens);
 int do_net_send(void *txpacket, int length);
+void e1000_handle_txqe(void);
+void e1000_handle_rxdmt0(void);
 
 #endif  // __INCLUDE_NET_H__

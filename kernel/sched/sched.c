@@ -1,3 +1,4 @@
+#include "os/irq.h"
 #include "pgtable.h"
 #include "type.h"
 #include <os/list.h>

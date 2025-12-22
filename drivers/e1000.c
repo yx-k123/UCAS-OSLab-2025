@@ -60,7 +60,7 @@ static void e1000_configure_tx(void)
         tx_desc_array[i].addr = kva2pa((uintptr_t)tx_pkt_buffer[i]);
         tx_desc_array[i].length = 0;
         tx_desc_array[i].cso = 0;
-        tx_desc_array[i].cmd = E1000_TXD_CMD_RS;
+        tx_desc_array[i].cmd = E1000_TXD_CMD_RS | E1000_TXD_CMD_EOP;
         tx_desc_array[i].status = E1000_TXD_STAT_DD;
         tx_desc_array[i].css = 0;
     }
@@ -118,6 +118,7 @@ static void e1000_configure_rx(void)
     local_flush_dcache();
 
     /* TODO: [p5-task4] Enable RXDMT0 Interrupt */
+    e1000_write_reg(e1000, E1000_IMS, E1000_IMS_RXDMT0);
 }
 
 /**
@@ -194,3 +195,4 @@ int e1000_poll(void *rxbuffer)
 
     return length;
 }
+
