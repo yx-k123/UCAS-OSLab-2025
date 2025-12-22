@@ -57,6 +57,9 @@ void do_scheduler(void)
             current_running[cpu_id] = &s_pid0_pcb;
         }
     }
+    /************************************************************/
+    // TODO: [p5-task3] Check send/recv queue to unblock PCBs
+    /************************************************************/
 
     pcb_t *next = current_running[cpu_id];
 
