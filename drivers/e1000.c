@@ -1,3 +1,4 @@
+#include "io.h"
 #include <e1000.h>
 #include <type.h>
 #include <os/string.h>
@@ -86,14 +87,35 @@ static void e1000_configure_tx(void)
 static void e1000_configure_rx(void)
 {
     /* TODO: [p5-task2] Set e1000 MAC Address to RAR[0] */
+    uint32_t rar_low = enetaddr[0] | (enetaddr[1] << 8) | (enetaddr[2] << 16) | (enetaddr[3] << 24);
+    uint32_t rar_high = enetaddr[4] | (enetaddr[5] << 8) | E1000_RAH_AV;
+    e1000_write_reg_array(e1000, E1000_RA, 0, rar_low);
+    e1000_write_reg_array(e1000, E1000_RA, 1, rar_high);
 
     /* TODO: [p5-task2] Initialize rx descriptors */
+    for (int i = 0; i < RXDESCS; i++) {
+        rx_desc_array[i].addr = kva2pa((uintptr_t)rx_pkt_buffer[i]);
+        rx_desc_array[i].status = 0;
+    }
 
+    local_flush_dcache(); 
+    
     /* TODO: [p5-task2] Set up the Rx descriptor base address and length */
+    uintptr_t rx_desc_pa = kva2pa((uintptr_t)rx_desc_array);
+    e1000_write_reg(e1000, E1000_RDBAL, (uint32_t)(rx_desc_pa & 0xFFFFFFFF));
+    e1000_write_reg(e1000, E1000_RDBAH, (uint32_t)(rx_desc_pa >> 32));
+    e1000_write_reg(e1000, E1000_RDLEN, RXDESCS * sizeof(struct e1000_rx_desc));
 
     /* TODO: [p5-task2] Set up the HW Rx Head and Tail descriptor pointers */
+    e1000_write_reg(e1000, E1000_RDH, 0);
+    e1000_write_reg(e1000, E1000_RDT, RXDESCS - 1);
 
     /* TODO: [p5-task2] Program the Receive Control Register */
+    e1000_write_reg(e1000, E1000_RCTL, E1000_RCTL_EN | E1000_RCTL_BAM 
+        | E1000_RCTL_SZ_2048 | E1000_RCTL_SECRC
+    );
+
+    local_flush_dcache();
 
     /* TODO: [p5-task4] Enable RXDMT0 Interrupt */
 }
@@ -145,7 +167,30 @@ int e1000_transmit(void *txpacket, int length)
  **/
 int e1000_poll(void *rxbuffer)
 {
-    /* TODO: [p5-task2] Receive one packet and put it into rxbuffer */
+    uint32_t tail = e1000_read_reg(e1000, E1000_RDT);
+    uint32_t next = (tail + 1) % RXDESCS;
 
-    return 0;
+    struct e1000_rx_desc *desc = &rx_desc_array[next];
+
+    // 刷新 Cache，确保读取到最新的描述符状态
+    local_flush_dcache();
+
+    if (!((desc->status) & E1000_RXD_STAT_DD)) {
+        return 0; // 没有收到包
+    }
+
+    uint16_t length = desc->length;
+
+    // 再次刷新 Cache，确保读取到最新的数据包内容
+    local_flush_dcache();
+
+    memcpy(rxbuffer, rx_pkt_buffer[next], length);
+
+    desc->status = 0;
+    desc->length = 0;
+
+    local_flush_dcache();
+    e1000_write_reg(e1000, E1000_RDT, next);
+
+    return length;
 }
