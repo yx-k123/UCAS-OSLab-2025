@@ -1,4 +1,3 @@
-#include "os/irq.h"
 #include <e1000.h>
 #include <os/net.h>
 #include <type.h>
@@ -23,6 +22,7 @@ int do_net_send(void *txpacket, int length)
         if (ret > 0) {
             return ret;  // 成功发送，返回发送的字节数
         } else {
+            printk("block on send\n");
             // 发送队列满，开启 TXQE 中断以便在队列有空位时被唤醒
             e1000_write_reg(e1000, E1000_IMS, E1000_IMS_TXQE);
             local_flush_dcache();
