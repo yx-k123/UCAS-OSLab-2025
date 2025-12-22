@@ -21,4 +21,7 @@ int do_net_send(void *txpacket, int length);
 void e1000_handle_txqe(void);
 void e1000_handle_rxdmt0(void);
 
+int do_net_recv_stream(void *buffer, int *nbytes);
+void net_check_timeout(void);
+
 #endif  // __INCLUDE_NET_H__

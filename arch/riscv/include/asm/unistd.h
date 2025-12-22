@@ -36,5 +36,6 @@
 #define SYSCALL_SHM_DT 57
 #define SYSCALL_NET_SEND 63
 #define SYSCALL_NET_RECV 64
+#define SYSCALL_NET_RECV_STREAM 65
 
 #endif

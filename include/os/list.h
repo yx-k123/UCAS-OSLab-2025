@@ -64,6 +64,14 @@ static inline void list_add_tail(list_node_t *new_node, list_head *head)
     head->prev = new_node;
 }
 
+static inline void list_add_head(list_node_t *new_node, list_head *head)
+{
+    new_node->next = head->next;
+    new_node->prev = head;
+    head->next->prev = new_node;
+    head->next = new_node;
+}
+
 static inline void list_del(list_node_t *entry)
 {
     entry->prev->next = entry->next;
