@@ -30,7 +30,10 @@ int main(int argc, char *argv[]) {
     int total_len = 0;
     int file_size = 0x7FFFFFFF; // 默认很大
     int use_size_header = 0;
+    int nbytes = 0;
     static uint8_t buffer[RECV_BUF_SIZE]; // 使用静态分配或全局变量
+
+    sys_net_recv_stream(NULL, &nbytes); // 重置接收状态机
     
     printf("Start receiving stream...\n");
 
@@ -40,7 +43,7 @@ int main(int argc, char *argv[]) {
         if (max_recv <= 0) break;
 
         // [关键] 传入 buffer + total_len
-        int nbytes = max_recv;
+        nbytes = max_recv;
         sys_net_recv_stream(buffer + total_len, &nbytes);
 
         if (nbytes <= 0) continue;

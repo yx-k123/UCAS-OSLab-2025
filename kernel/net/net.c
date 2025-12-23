@@ -109,7 +109,7 @@ static void send_control(uint8_t flags, uint32_t seq) {
 // 超时控制
 static pcb_t *net_blocked_task = NULL;
 static uint64_t net_wakeup_time = 0;
-#define NET_TIMEOUT_TICKS 10000 // 10ms 
+#define NET_TIMEOUT_TICKS 2000
 
 void net_check_timeout(void) {
     if (net_blocked_task && get_ticks() > net_wakeup_time) {
@@ -124,7 +124,10 @@ int do_net_recv_stream(void *buffer, int *nbytes)
     int received = 0;
     uint8_t rx_temp[2048];
 
-    if (wanted <= 0 || buffer == NULL) return -1;
+    if (wanted <= 0 || buffer == NULL) {
+        expected_seq = 0;
+        return -1;
+    }
 
     // 每次调用重置唤醒时间
     net_wakeup_time = 0;
@@ -227,10 +230,8 @@ int do_net_recv_stream(void *buffer, int *nbytes)
         }
 
         // 阻塞与控制包逻辑
-        
-        if (received > 0) {
-            break; // 已经读到部分数据，返回用户
-        }
+
+
 
         // 1. 如果链表非空，且第一个包序号 > expected_seq -> 说明丢包了 -> 发 RSD(expected)
         // 2. 如果链表为空 -> 可能是发得慢，也可能是丢包但还没收到后续包 -> 发 ACK(expected) 催促
@@ -247,6 +248,10 @@ int do_net_recv_stream(void *buffer, int *nbytes)
             send_control(STREAM_FLAG_RSD, expected_seq);
         } else {
             send_control(STREAM_FLAG_ACK, expected_seq);
+        }
+
+        if (received > 0) {
+            break; // 已经读到部分数据，返回用户
         }
 
         // 阻塞
