@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
             file_size = *(int *)buffer - 4; // 减去头部大小
             printf("File size from header: %d bytes\n", file_size);
             
-            // [关键] 移除头部，将数据前移
+            // 移除头部，将数据前移
             my_memmove(buffer, buffer + 4, nbytes - 4);
             nbytes -= 4; // 修正本次接收长度
             use_size_header = 1;

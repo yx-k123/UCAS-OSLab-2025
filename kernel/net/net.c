@@ -109,7 +109,7 @@ static void send_control(uint8_t flags, uint32_t seq) {
 // 超时控制
 static pcb_t *net_blocked_task = NULL;
 static uint64_t net_wakeup_time = 0;
-#define NET_TIMEOUT_TICKS 2000 
+#define NET_TIMEOUT_TICKS 10000 // 10ms 
 
 void net_check_timeout(void) {
     if (net_blocked_task && get_ticks() > net_wakeup_time) {
@@ -131,9 +131,7 @@ int do_net_recv_stream(void *buffer, int *nbytes)
 
     while (received < wanted) {
         
-        // ---------------------------------------------------
-        // 1. 尝试从缓冲队列消费数据
-        // ---------------------------------------------------
+        // 尝试从缓冲队列消费数据
         while (!list_empty(&stream_list)) {
             stream_node_t *node = list_entry(stream_list.next, stream_node_t, list);
 
@@ -160,14 +158,12 @@ int do_net_recv_stream(void *buffer, int *nbytes)
                     return 0;
                 }
             } else {
-                // 遇到空洞 (Gap): node->seq > expected_seq
+                // 遇到空洞: node->seq > expected_seq
                 break; 
             }
         }
 
-        // ---------------------------------------------------
-        // 2. 轮询网卡
-        // ---------------------------------------------------
+        // 轮询网卡
         int poll_len = e1000_poll(rx_temp);
         if (poll_len > 0) {
             if (poll_len > HEADERS_OFFSET + sizeof(struct stream_hdr)) {
@@ -221,7 +217,7 @@ int do_net_recv_stream(void *buffer, int *nbytes)
                         }
                     } else {
                         // 收到旧包 (seq < expected_seq)
-                        // 这通常意味着我们的 ACK 丢了，发送方重传了。
+                        // 这通常意味着 ACK 丢了，发送方重传了。
                         // 我们应该立即补发一个 ACK，告诉它我们已经到了 expected_seq
                         send_control(STREAM_FLAG_ACK, expected_seq);
                     }
@@ -230,17 +226,12 @@ int do_net_recv_stream(void *buffer, int *nbytes)
             continue; // 继续轮询直到读空
         }
 
-        // ---------------------------------------------------
-        // 3. 阻塞与控制包逻辑
-        // ---------------------------------------------------
+        // 阻塞与控制包逻辑
         
         if (received > 0) {
             break; // 已经读到部分数据，返回用户
         }
 
-        // 此时 received == 0，准备阻塞
-        
-        // 策略：
         // 1. 如果链表非空，且第一个包序号 > expected_seq -> 说明丢包了 -> 发 RSD(expected)
         // 2. 如果链表为空 -> 可能是发得慢，也可能是丢包但还没收到后续包 -> 发 ACK(expected) 催促
         
@@ -255,8 +246,6 @@ int do_net_recv_stream(void *buffer, int *nbytes)
         if (need_rsd) {
             send_control(STREAM_FLAG_RSD, expected_seq);
         } else {
-            // [关键修正] 发送 ACK expected_seq
-            // 告诉发送方："我期望接收 expected_seq，请确认你是否发过或者窗口是否满了"
             send_control(STREAM_FLAG_ACK, expected_seq);
         }
 
@@ -265,7 +254,7 @@ int do_net_recv_stream(void *buffer, int *nbytes)
         local_flush_dcache();
 
         net_blocked_task = current_running[get_current_cpu_id()];
-        net_wakeup_time = get_ticks() + NET_TIMEOUT_TICKS; // 2ms - 10ms
+        net_wakeup_time = get_ticks() + NET_TIMEOUT_TICKS;
         
         do_block(&net_blocked_task->list, &recv_block_queue);
         do_scheduler();
