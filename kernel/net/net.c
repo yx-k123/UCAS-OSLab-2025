@@ -231,27 +231,18 @@ int do_net_recv_stream(void *buffer, int *nbytes)
 
         // 阻塞与控制包逻辑
 
+        if (received > 0) {
+            break; // 已经读到部分数据，返回用户
+        }
 
+        send_control(STREAM_FLAG_ACK, expected_seq);
 
-        // 1. 如果链表非空，且第一个包序号 > expected_seq -> 说明丢包了 -> 发 RSD(expected)
-        // 2. 如果链表为空 -> 可能是发得慢，也可能是丢包但还没收到后续包 -> 发 ACK(expected) 催促
-        
-        int need_rsd = 0;
         if (!list_empty(&stream_list)) {
             stream_node_t *head = list_entry(stream_list.next, stream_node_t, list);
             if (head->seq > expected_seq) {
-                need_rsd = 1;
+                // 有空洞，尝试请求重传
+                send_control(STREAM_FLAG_RSD, expected_seq);
             }
-        }
-
-        if (need_rsd) {
-            send_control(STREAM_FLAG_RSD, expected_seq);
-        } else {
-            send_control(STREAM_FLAG_ACK, expected_seq);
-        }
-
-        if (received > 0) {
-            break; // 已经读到部分数据，返回用户
         }
 
         // 阻塞
