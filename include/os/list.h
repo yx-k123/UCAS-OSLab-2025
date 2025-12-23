@@ -93,4 +93,7 @@ static inline void init_list_head(list_head *list)
 // offsetof is used to get the offset of the member in a struct.
 #define offsetof(type, member) ((size_t) & ((type *)0)->member)
 
+#define list_for_each(pos, head) \
+    for (pos = (head)->next; pos != (head); pos = pos->next)
+
 #endif
