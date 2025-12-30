@@ -41,7 +41,7 @@ void sys_move_cursor(int x, int y)
     invoke_syscall(SYSCALL_CURSOR, (long)x, (long)y, IGNORE, IGNORE, IGNORE);
 }
 
-void sys_write(char *buff)
+void sys_screen_write(char *buff)
 {
     /* TODO: [p2-task1] call call_jmptab to implement sys_write */
     // call_jmptab(CONSOLE_PUTSTR, (long)buff, IGNORE, IGNORE, IGNORE, IGNORE);

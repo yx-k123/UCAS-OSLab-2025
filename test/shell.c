@@ -94,19 +94,19 @@ int main(void)
         // note: backspace maybe 8('\b') or 127(delete)
         if (temp == '\b' || temp == 127) {
             if (idx > 0) {
-                sys_write("\b");
+                sys_screen_write("\b");
                 sys_reflush();
                 buff[--idx] = '\0';
             }
         } else if (temp == '\n' || temp == '\r') {
-            sys_write("\n");
+            sys_screen_write("\n");
             sys_reflush();
             end = 1;
             buff[idx] = '\0';
             idx = 0;
         } else {
             buff[idx++] = (char)temp;
-            sys_write((char[]){(char)temp, '\0'});
+            sys_screen_write((char[]){(char)temp, '\0'});
             sys_reflush();
         }
 
