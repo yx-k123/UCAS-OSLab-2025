@@ -51,9 +51,9 @@ typedef struct {
 
 static LIST_HEAD(stream_list);
 static uint32_t expected_seq = 0;
-// [新增] 记录上一个成功接收并处理的包的序号
+// 记录上一个成功接收并处理的包的序号
 static uint32_t last_valid_seq = 0; 
-// [新增] 标记是否收到过数据，用于启动阶段判断
+// 标记是否收到过数据，用于启动阶段判断
 static int has_received_any = 0;
 
 static uint8_t cached_headers[HEADERS_OFFSET]; 
@@ -247,13 +247,19 @@ int do_net_recv_stream(void *buffer, int *nbytes)
 
         // 阻塞
         e1000_write_reg(e1000, E1000_IMS, E1000_IMS_RXDMT0);
-        local_flush_dcache();
-
+        
+        // 先更新全局变量
         net_blocked_task = current_running[get_current_cpu_id()];
         net_wakeup_time = get_ticks() + NET_TIMEOUT_TICKS;
         
+        // 再刷新 Cache，确保其他核能看到最新的 net_blocked_task
+        local_flush_dcache();
+
         do_block(&net_blocked_task->list, &recv_block_queue);
         do_scheduler();
+
+        // 唤醒后，再次刷新 Cache，确保本核看到最新的内存数据
+        local_flush_dcache();
 
         net_blocked_task = NULL;
     }
@@ -275,11 +281,11 @@ int do_net_send(void *txpacket, int length)
             return ret;  // 成功发送，返回发送的字节数
         } else {
             printk("block on send\n");
+            do_block(&current_running[get_current_cpu_id()]->list, &send_block_queue);
             // 发送队列满，开启 TXQE 中断以便在队列有空位时被唤醒
+            local_flush_dcache();
             e1000_write_reg(e1000, E1000_IMS, E1000_IMS_TXQE);
             local_flush_dcache();
-            // 阻塞当前进程，加入发送阻塞队列
-            do_block(&current_running[get_current_cpu_id()]->list, &send_block_queue);
             do_scheduler();
 
             // 被唤醒后，循环继续，再次尝试 e1000_transmit
@@ -305,14 +311,11 @@ int do_net_recv(void *rxbuffer, int pkt_num, int *pkt_lens)
                 total_received_bytes += length;
                 break; // 跳出 while 循环，准备接收下一个包（for 循环）
             } else {
-                // 当前没有数据包，开启接收中断 (RXDMT0)
+                do_block(&current_running[get_current_cpu_id()]->list, &recv_block_queue);
+                local_flush_dcache();
                 e1000_write_reg(e1000, E1000_IMS, E1000_IMS_RXDMT0);
                 local_flush_dcache();
-                // 阻塞当前进程，加入接收阻塞队列
-                do_block(&current_running[get_current_cpu_id()]->list, &recv_block_queue);
                 do_scheduler();
-
-                // 被唤醒后，循环继续，再次尝试 e1000_poll
             }
         }
     }
@@ -344,6 +347,7 @@ void e1000_handle_txqe(void){
     if (!list_empty(&send_block_queue)) {
         list_node_t *node_to_wake = send_block_queue.next;
         do_unblock(node_to_wake);
+        wakeup_other_hart();
     }
     e1000_write_reg(e1000, E1000_IMC, E1000_IMS_TXQE);
     local_flush_dcache();
@@ -354,6 +358,7 @@ void e1000_handle_rxdmt0(void){
     if (!list_empty(&recv_block_queue)) {
         list_node_t *node_to_wake = recv_block_queue.next;
         do_unblock(node_to_wake);
+        wakeup_other_hart();
     }
     e1000_write_reg(e1000, E1000_IMC, E1000_IMS_RXDMT0);
     local_flush_dcache();

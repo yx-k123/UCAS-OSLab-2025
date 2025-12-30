@@ -1,3 +1,4 @@
+#include "common.h"
 #include "sys/syscall.h"
 #include <os/irq.h>
 #include <os/time.h>
@@ -51,6 +52,10 @@ void handle_irq_ext(regs_context_t *regs, uint64_t stval, uint64_t scause)
     // Note: plic_claim and plic_complete will be helpful ...
     // 获取当前挂起的中断源 ID
     uint32_t claim_id = plic_claim();
+
+    if (claim_id == 0) {
+        return;
+    }
     // if (claim_id) printk("IRQ %d\n", claim_id);
     // 判断是否是 E1000 的中断
     if(claim_id == PLIC_E1000_PYNQ_IRQ || claim_id == PLIC_E1000_QEMU_IRQ){
@@ -78,7 +83,7 @@ void init_exception()
     /* TODO: [p2-task4] initialize irq_table */
     /* NOTE: handle_int, handle_other, etc.*/
     irq_table[IRQC_U_SOFT] = handle_other;
-    irq_table[IRQC_S_SOFT] = handle_other;
+    irq_table[IRQC_S_SOFT] = handle_ipi;
     irq_table[IRQC_M_SOFT] = handle_other;
     irq_table[IRQC_U_TIMER] = handle_other;
     irq_table[IRQC_S_TIMER] = handle_irq_timer;
@@ -89,6 +94,10 @@ void init_exception()
 
     /* TODO: [p2-task3] set up the entrypoint of exceptions */
     // setup_exception();
+}
+
+void handle_ipi(regs_context_t *regs, uint64_t stval, uint64_t scause){
+    asm volatile("csrc sip, %0" : : "r"(0x2)); 
 }
 
 void handle_page_fault(regs_context_t *regs, uint64_t stval, uint64_t scause)
