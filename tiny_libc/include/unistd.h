@@ -65,6 +65,21 @@ long sys_pipe_take_pages(int pipe_idx, void *dst, size_t length);
 int sys_net_send(void *txpacket, int length);
 int sys_net_recv(void *rxbuffer, int pkt_num, int *pkt_lens);
 int sys_net_recv_stream(void *buffer, int *nbytes);
+
+/* file system operations */
+int sys_mkfs(void);
+int sys_statfs(void);
+int sys_cd(char *path);
+int sys_mkdir(char *path);
+int sys_rmdir(char *path);
+int sys_ls(char *path, int option);
+int sys_open(char *path, int mode);
+int sys_read(int fd, char *buff, int length);
+int sys_write(int fd, char *buff, int length);
+int sys_close(int fd);
+int sys_ln(char *src_path, char *dst_path);
+int sys_rm(char *path);
+int sys_lseek(int fd, int offset, int whence);
 /************************************************************/
 
 #endif
