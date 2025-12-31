@@ -7,21 +7,56 @@
 #define SUPERBLOCK_MAGIC 0xDF4C4459
 #define NUM_FDESCS 16
 
+#define BLOCK_SIZE 4096
+#define SECTOR_SIZE 512
+#define MAX_FILE_NAME 28
+#define MAX_DATA_BLOCKS 12
+
+#define IM_REG 1
+#define IM_DIR 2
+
+// #define KERNEL_START_SEC 0
+// #define SWAP_START_SEC 20000
+#define FS_START_SEC 200000 // from 100MB
+#define SUPER_BLOCK_SIZE SECTOR_SIZE
+
 /* data structures of file system */
 typedef struct superblock {
     // TODO [P6-task1]: Implement the data structure of superblock
+    uint32_t magic;
+    uint32_t size;
+    uint32_t start_sector;
+    
+    uint32_t block_map_offset;
+    uint32_t inode_map_offset;
+    uint32_t inode_offset;
+    uint32_t data_offset;
+    
+    uint32_t inode_count;
+    uint32_t block_count;
 } superblock_t;
 
 typedef struct dentry {
     // TODO [P6-task1]: Implement the data structure of directory entry
+    char name[MAX_FILE_NAME];
+    uint32_t ino;
 } dentry_t;
 
 typedef struct inode { 
     // TODO [P6-task1]: Implement the data structure of inode
+    uint32_t mode;          // IM_REG or IM_DIR
+    uint32_t nlinks;        // Hard link count
+    uint32_t size;          // File size in bytes
+    uint32_t blocks[MAX_DATA_BLOCKS]; // Direct pointers
+    uint32_t indirect;   // Optional for larger files
 } inode_t;
 
 typedef struct fdesc {
     // TODO [P6-task2]: Implement the data structure of file descriptor
+    uint8_t  used;          // Is this descriptor active?
+    uint32_t ino;           // Inode number
+    uint32_t pos;           // Current file offset
+    uint32_t mode;          // O_RDONLY, etc
 } fdesc_t;
 
 /* modes of do_open */
