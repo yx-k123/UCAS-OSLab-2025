@@ -2,6 +2,7 @@
 #define __INCLUDE_OS_FS_H__
 
 #include <type.h>
+#include <os/kernel.h>
 
 /* macros of file system */
 #define SUPERBLOCK_MAGIC 0xDF4C4459
@@ -11,6 +12,7 @@
 #define SECTOR_SIZE 512
 #define MAX_FILE_NAME 28
 #define MAX_DATA_BLOCKS 12
+#define FS_SIZE (1024 * 1024 * 1024) // 1 GB
 
 #define IM_REG 1
 #define IM_DIR 2
@@ -83,5 +85,25 @@ extern int do_close(int fd);
 extern int do_ln(char *src_path, char *dst_path);
 extern int do_rm(char *path);
 extern int do_lseek(int fd, int offset, int whence);
+
+// Helper functions
+uint32_t current_dir_ino = 0; // 默认根目录 inode 为 0
+
+// 辅助函数定义（你需要自己实现这些细节）
+// 1. 读取/写入 inode 到磁盘
+extern void get_inode(uint32_t ino, inode_t *inode);
+extern void sync_inode(uint32_t ino, inode_t *inode);
+
+// 2. 位图操作：分配/释放 Inode 和 Block
+extern uint32_t alloc_inode();
+extern uint32_t alloc_block();
+extern void free_inode(uint32_t ino);
+extern void free_block(uint32_t blk);
+
+// 3. 路径解析：核心难点。输入 "/home/user"，返回 user 的 inode 号
+extern uint32_t lookup_path(char *path);
+
+// 4. 获取文件第 n 个逻辑块对应的物理扇区号
+extern uint32_t get_block_sector(inode_t *inode, uint32_t block_index);
 
 #endif

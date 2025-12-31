@@ -1,11 +1,18 @@
+#include "pgtable.h"
 #include <os/string.h>
 #include <os/fs.h>
 
 static fdesc_t fdesc_array[NUM_FDESCS];
+static superblock_t current_sb;
+static dentry_t current_dir_entries[NUM_FDESCS]; // 当前目录的目录项缓存
 
 int do_mkfs(void)
 {
     // TODO [P6-task1]: Implement do_mkfs
+    if (current_sb.magic == SUPERBLOCK_MAGIC) {
+        return 0;  // Filesystem already exists
+    }
+
 
     return 0;  // do_mkfs succeeds
 }
