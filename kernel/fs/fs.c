@@ -108,7 +108,7 @@ int do_mkfs(void)
 
 int do_statfs(void)
 {
-    uint8_t buffer[FS_BLOCK_SIZE]; 
+    static uint8_t buffer[FS_BLOCK_SIZE]; 
     superblock_t *sb = (superblock_t *)buffer;
 
     fs_read_block(0, buffer);
@@ -172,7 +172,99 @@ int do_cd(char *path)
 
 int do_mkdir(char *path)
 {
-    // TODO [P6-task1]: Implement do_mkdir
+    // 1. 路径解析：分离 Parent Path 和 New Dir Name
+    char parent_path[256] = {0};
+    char dirname[64] = {0};
+    
+    // 找到最后一个 '/'
+    char *last_slash = strrchr(path, '/');
+    
+    if (last_slash == NULL) {
+        // 情况 A: "newdir" (相对路径，在当前目录下创建)
+        strcpy(parent_path, "."); 
+        strcpy(dirname, path);
+    } else if (last_slash == path) {
+        // 情况 B: "/newdir" (在根目录下创建)
+        strcpy(parent_path, "/");
+        strcpy(dirname, path + 1);
+    } else {
+        // 情况 C: "/home/user/newdir"
+        int len = last_slash - path;
+        strncpy(parent_path, path, len);
+        strcpy(dirname, last_slash + 1);
+    }
+
+    // 2. 查找父目录
+    uint32_t parent_inode_num;
+    if (strcmp(parent_path, ".") == 0) {
+        parent_inode_num = current_cwd_inode;
+    } else {
+        parent_inode_num = lookup_path(parent_path);
+    }
+
+    if (parent_inode_num == 0) {
+        // printf("Error: Parent directory not found.\n");
+        return -1;
+    }
+
+    inode_t parent_inode;
+    get_inode(parent_inode_num, &parent_inode);
+
+    // 检查父节点是否为目录
+    if (parent_inode.file_mode != IM_DIR) return -1;
+
+    // 检查是否重名 (find_entry 是上一节定义的函数)
+    // if (find_entry(&parent_inode, dirname) != 0) return -1; // 已存在
+
+    // 3. 分配资源 (Inode 和 Data Block)
+    uint32_t new_inode_num = alloc_inode();
+    if (new_inode_num == 0) return -1; // No inodes left
+
+    uint32_t new_block_id = alloc_block();
+    if (new_block_id == 0) return -1; // No blocks left
+
+    // 4. 初始化新目录的 Inode
+    inode_t new_inode;
+    new_inode.file_mode = IM_DIR;
+    new_inode.file_size = FS_BLOCK_SIZE; // 逻辑大小通常是一个块
+    new_inode.link_count = 2;         // 链接数：1(父目录的entry) + 1(自己的.)
+    new_inode.direct_blocks[0] = new_block_id;
+    // 其他 block 指针清零...
+    for(int i=1; i<12; i++) new_inode.direct_blocks[i] = 0;
+    
+    sync_inode(new_inode_num, &new_inode);
+
+    // 5. 初始化新目录的数据块 (. 和 ..)
+    static uint8_t buf[FS_BLOCK_SIZE];
+    memset(buf, 0, FS_BLOCK_SIZE);
+    dentry_t *dentries = (dentry_t *)buf;
+
+    // Entry 0: "." 指向自己
+    dentries[0].inode_number = new_inode_num;
+    strcpy(dentries[0].file_name, ".");
+    dentries[0].file_type = IM_DIR;
+
+    // Entry 1: ".." 指向父目录
+    dentries[1].inode_number = parent_inode_num;
+    strcpy(dentries[1].file_name, "..");
+    dentries[1].file_type = IM_DIR;
+
+    fs_write_block(new_block_id, buf);
+
+    // 6. 更新父目录 (添加目录项 + 更新链接数)
+    // 6.1 添加目录项
+    if (add_entry_to_parent(&parent_inode, new_inode_num, dirname) < 0) {
+        // 如果添加失败（满了），理论上应该回滚（释放刚才分配的 inode/block）
+        // 这里简化：直接返回错误
+        return -1;
+    }
+
+    // 6.2 更新父目录 Inode 元数据
+    // 重点：父目录的链接数要 +1，因为新目录里有一个 ".." 指向它
+    parent_inode.link_count++; 
+    // 父目录大小通常不需要变（因为是用 Block 管理的），除非你按字节精确记录
+    
+    sync_inode(parent_inode_num, &parent_inode);
 
     return 0;  // do_mkdir succeeds
 }
@@ -471,4 +563,177 @@ uint32_t lookup_path(char *path)
 
     // 循环结束，current_inode_num 指向的就是路径的最后一级
     return current_inode_num;
+}
+
+void sync_inode(uint32_t inode_num, inode_t *target) {
+    uint32_t inode_idx = inode_num - 1;
+    uint32_t block_offset = inode_idx / INODES_PER_BLOCK;
+    uint32_t physical_block_id = current_superblock.inode_table_start + block_offset;
+    uint32_t inner_idx = inode_idx % INODES_PER_BLOCK;
+
+    static uint8_t buffer[FS_BLOCK_SIZE];
+    fs_read_block(physical_block_id, buffer); // Read
+    inode_t *dest_ptr = (inode_t *)buffer + inner_idx;
+    memcpy((uint8_t *)dest_ptr, (uint8_t *)target, sizeof(inode_t)); // Modify
+    fs_write_block(physical_block_id, buffer); // Write
+}
+
+// 向目录的数据块中添加一个 entry
+// 返回 0 成功，-1 失败（如目录满了）
+int add_entry_to_parent(inode_t *parent_inode, uint32_t new_inode_num, char *name) {
+    static uint8_t buffer[FS_BLOCK_SIZE];
+    
+    // 遍历父目录的所有直接块，寻找空槽位
+    for (int i = 0; i < 12; i++) {
+        uint32_t block_id = parent_inode->direct_blocks[i];
+        
+        // 如果该指针还没分配，需要先分配一个数据块给父目录（这里简化处理：假设父目录已分配且未满）
+        // 严谨写法：如果 block_id == 0，alloc_block 并关联
+        if (block_id == 0) {
+            block_id = alloc_block();
+            parent_inode->direct_blocks[i] = block_id;
+            // 初始化新块全0
+            memset(buffer, 0, FS_BLOCK_SIZE);
+            fs_write_block(block_id, buffer);
+        }
+
+        fs_read_block(block_id, buffer);
+        dentry_t *dentries = (dentry_t *)buffer;
+
+        for (int j = 0; j < DENTRIES_PER_BLOCK; j++) {
+            // 找到一个空闲位置 (inode_number == 0)
+            if (dentries[j].inode_number == 0) {
+                dentries[j].inode_number = new_inode_num;
+                strcpy(dentries[j].file_name, name);
+                dentries[j].file_type = IM_DIR; // 标记这是个目录
+                // 写回磁盘
+                fs_write_block(block_id, buffer);
+                return 0;
+            }
+        }
+    }
+    return -1; // 目录彻底满了
+}
+
+static int get_bit(uint8_t *buf, uint32_t index) {
+    uint32_t byte_offset = index / BITS_PER_BYTE;
+    uint32_t bit_offset  = index % BITS_PER_BYTE;
+    return (buf[byte_offset] >> bit_offset) & 1;
+}
+
+// 辅助：将 buffer 中第 index 位置为 1
+static void set_bit(uint8_t *buf, uint32_t index) {
+    uint32_t byte_offset = index / BITS_PER_BYTE;
+    uint32_t bit_offset  = index % BITS_PER_BYTE;
+    buf[byte_offset] |= (1 << bit_offset);
+}
+
+uint32_t alloc_inode() 
+{
+    // 1. 检查是否有空闲资源
+    if (current_superblock.free_inode_count == 0) {
+        return 0; // 分配失败
+    }
+
+    static uint8_t buf[FS_BLOCK_SIZE];
+    uint32_t total_inodes = current_superblock.total_inodes;
+    
+    // 2. 遍历 Inode Bitmap
+    // 注意：如果总 Inode 数很多，位图可能占多个块。这里为了通用性，支持跨块扫描。
+    // 但是在 P6 实验中，Inode 数较少，一个块(32768个位)足够，外层循环只执行一次。
+    
+    // 计算位图占多少个块
+    uint32_t bitmap_blocks = (total_inodes + BITS_PER_BLOCK - 1) / BITS_PER_BLOCK;
+
+    for (uint32_t b = 0; b < bitmap_blocks; b++) {
+        // 读取第 b 个位图块
+        uint32_t bitmap_block_id = current_superblock.inode_bitmap_start + b;
+        fs_read_block(bitmap_block_id, buf);
+
+        // 遍历该块内的每一位
+        for (uint32_t i = 0; i < BITS_PER_BLOCK; i++) {
+            uint32_t global_inode_index = b * BITS_PER_BLOCK + i;
+            
+            // 越界检查
+            if (global_inode_index >= total_inodes) break;
+
+            // 3. 找到空闲位 (0)
+            if (get_bit(buf, i) == 0) {
+                // 3.1 修改位图
+                set_bit(buf, i);
+                fs_write_block(bitmap_block_id, buf); // 立即写回磁盘
+
+                // 3.2 更新 Superblock
+                current_superblock.free_inode_count--;
+                
+                // 将 Superblock 写回磁盘 (块 0)
+                // 注意：这里需要先把 Superblock 放到一个 4K buffer 里再写，或者依赖写函数的处理
+                // 假设直接用 struct 指针强转写入是安全的(需填充至4K):
+                static uint8_t sb_buf[FS_BLOCK_SIZE];
+                memset(sb_buf, 0, FS_BLOCK_SIZE);
+                memcpy(sb_buf, (void *)&current_superblock, sizeof(superblock_t));
+                fs_write_block(0, sb_buf);
+
+                // 3.3 返回 Inode 编号
+                // 索引 0 对应 Inode 1
+                return global_inode_index + 1;
+            }
+        }
+    }
+
+    return 0; // 理论上应该在开头就被 free_inode_count 拦截，走到这里说明数据不一致
+}
+uint32_t alloc_block() 
+{
+    // 1. 检查是否有空闲资源
+    if (current_superblock.free_block_count == 0) {
+        return 0; // 分配失败
+    }
+
+    static uint8_t buf[FS_BLOCK_SIZE];
+    // 数据区能够容纳的总块数 = 总块数 - 数据区起始位置
+    // 或者直接使用 block bitmap 能管理的上限
+    uint32_t max_data_blocks = current_superblock.total_blocks - current_superblock.data_start_block;
+
+    // 假设 Block Bitmap 只有一个块 (能管理 32768 * 4KB = 128MB 数据)
+    // 如果你的磁盘很大，这里同样需要 for 循环遍历 bitmap blocks，逻辑同上。
+    // 这里展示处理多块位图的逻辑：
+    
+    uint32_t bitmap_blocks = (max_data_blocks + BITS_PER_BLOCK - 1) / BITS_PER_BLOCK;
+
+    for (uint32_t b = 0; b < bitmap_blocks; b++) {
+        uint32_t bitmap_block_id = current_superblock.block_bitmap_start + b;
+        fs_read_block(bitmap_block_id, buf);
+
+        for (uint32_t i = 0; i < BITS_PER_BLOCK; i++) {
+            uint32_t bit_index = b * BITS_PER_BLOCK + i;
+            
+            if (bit_index >= max_data_blocks) break;
+
+            // 2. 找到空闲位
+            if (get_bit(buf, i) == 0) {
+                // 2.1 修改位图并写回
+                set_bit(buf, i);
+                fs_write_block(bitmap_block_id, buf);
+                // 2.2 更新 Superblock 并写回
+                current_superblock.free_block_count--;
+                static uint8_t sb_buf[FS_BLOCK_SIZE];
+                memset(sb_buf, 0, FS_BLOCK_SIZE);
+                memcpy(sb_buf, (void *)&current_superblock, sizeof(superblock_t));
+                fs_write_block(0, sb_buf);
+
+                // 2.3 计算实际物理块号
+                uint32_t physical_block_id = current_superblock.data_start_block + bit_index;
+
+                // 2.4 清零新分配的块 (Zero out)
+                static uint8_t zero_buf[FS_BLOCK_SIZE];
+                memset(zero_buf, 0, FS_BLOCK_SIZE);
+                fs_write_block(physical_block_id, zero_buf);
+
+                return physical_block_id;
+            }
+        }
+    }
+
+    return 0;
 }

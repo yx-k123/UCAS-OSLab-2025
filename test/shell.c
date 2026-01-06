@@ -167,12 +167,12 @@ int main(void)
         //     } else {
         //         sys_cd(argv[1]);
         //     }
-        // } else if (strcmp(argv[0], "mkdir") == 0) {
-        //     if (argc < 2) {
-        //         printf("Usage: mkdir [path]\n");
-        //     } else {
-        //         sys_mkdir(argv[1]);
-        //     }
+        } else if (strcmp(argv[0], "mkdir") == 0) {
+            if (argc < 2) {
+                printf("Usage: mkdir [path]\n");
+            } else {
+                sys_mkdir(argv[1]);
+            }
         // } else if (strcmp(argv[0], "rmdir") == 0) {
         //     if (argc < 2) {
         //         printf("Usage: rmdir [path]\n");

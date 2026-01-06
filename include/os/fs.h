@@ -17,6 +17,8 @@
 #define MAX_FILE_NAME 24
 #define MAX_DATA_BLOCKS 12
 #define FS_SIZE (1024 * 1024 * 1024) // 1 GB
+#define BITS_PER_BYTE 8
+#define BITS_PER_BLOCK (FS_BLOCK_SIZE * BITS_PER_BYTE)
 
 #define IM_REG 1
 #define IM_DIR 2
@@ -102,4 +104,8 @@ extern void fs_read_block(uint32_t block_num, void *buf);
 extern int get_inode(uint32_t inode_num, inode_t *target);
 extern uint32_t find_entry(inode_t *dir_inode, char *name);
 extern uint32_t lookup_path(char *path);
+extern uint32_t alloc_inode();
+extern uint32_t alloc_block();
+extern void sync_inode(uint32_t inode_num, inode_t *target);
+extern int add_entry_to_parent(inode_t *parent_inode, uint32_t inode_num, char *name);
 #endif

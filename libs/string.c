@@ -149,3 +149,16 @@ char *strtok(char *str, const char *delim) {
 
     return start; // 返回当前子字符串
 }
+
+char *strrchr(const char *str, int c) {
+    const char *last = NULL; // 用于记录最后一次出现的位置
+
+    while (*str) {
+        if (*str == (char)c) {
+            last = str; // 更新最后一次出现的位置
+        }
+        str++;
+    }
+
+    return (char *)last; // 返回最后一次出现的位置，或者 NULL
+}
