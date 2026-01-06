@@ -98,6 +98,8 @@ extern int do_close(int fd);
 extern int do_ln(char *src_path, char *dst_path);
 extern int do_rm(char *path);
 extern int do_lseek(int fd, int offset, int whence);
+extern int do_touch(char *path);
+extern int do_cat(char *path);
 
 extern void fs_write_block(uint32_t block_num, const void *buf);
 extern void fs_read_block(uint32_t block_num, void *buf);

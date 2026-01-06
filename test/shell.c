@@ -192,6 +192,18 @@ int main(void)
                 }
             }
             sys_ls(path, option);
+        } else if (strcmp(argv[0], "touch") == 0) {
+            if (argc < 2) {
+                printf("Usage: touch [path]\n");
+            } else {
+                sys_touch(argv[1]);
+            }
+        } else if (strcmp(argv[0], "cat") == 0) {
+            if (argc < 2) {
+                printf("Usage: cat [path]\n");
+            } else {
+                sys_cat(argv[1]);
+            }
         } else {
             printf("Unknown command: %s\n", argv[0]);
         }

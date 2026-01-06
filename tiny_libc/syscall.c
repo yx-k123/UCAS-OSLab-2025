@@ -352,4 +352,16 @@ int sys_lseek(int fd, int offset, int whence)
     // TODO [P6-task2]: Implement sys_lseek
     return invoke_syscall(SYSCALL_FS_LSEEK, (long)fd, (long)offset, (long)whence, IGNORE, IGNORE);
 }
+
+int sys_touch(char *path)
+{
+    // TODO [P6-task1]: Implement sys_touch
+    return invoke_syscall(SYSCALL_FS_TOUCH, (long)path, IGNORE, IGNORE, IGNORE, IGNORE);
+}
+
+int sys_cat(char *path)
+{
+    // TODO [P6-task1]: Implement sys_cat
+    return invoke_syscall(SYSCALL_FS_CAT, (long)path, IGNORE, IGNORE, IGNORE, IGNORE);
+}
 /************************************************************/

@@ -26,7 +26,7 @@ int do_mkfs(void)
     // 0:superblock + 1:inode_bitmap + 2:block_bitmap + 3-N:inode_table + N+1:data_blocks
     sb.inode_bitmap_start = 1; 
     sb.block_bitmap_start = 2; 
-    sb.inode_table_start  = 3;
+    sb.inode_table_start  = 5;
     
     printk("      Inode map offset: %d\n", sb.inode_bitmap_start);
     printk("      Block map offset: %d\n", sb.block_bitmap_start);
@@ -233,7 +233,7 @@ int do_mkdir(char *path)
     if (parent_inode.file_mode != IM_DIR) return -1;
 
     // 检查是否重名 (find_entry 是上一节定义的函数)
-    // if (find_entry(&parent_inode, dirname) != 0) return -1; // 已存在
+    if (find_entry(&parent_inode, dirname) != 0) return -1; // 已存在
 
     // 3. 分配资源 (Inode 和 Data Block)
     uint32_t new_inode_num = alloc_inode();
@@ -467,6 +467,130 @@ int do_ls(char *path, int option)
     }
 
     return 0;  // do_ls succeeds
+}
+
+int do_touch(char *path)
+{
+    // 1. 路径解析：分离父目录路径和文件名
+    char parent_path[256];
+    char filename[64];
+    
+    // (这里复用之前的路径拆分逻辑)
+    char *last_slash = strrchr(path, '/');
+    if (last_slash == NULL) {
+        strcpy(parent_path, "."); strcpy(filename, path);
+    } else if (last_slash == path) {
+        strcpy(parent_path, "/"); strcpy(filename, path + 1);
+    } else {
+        int len = last_slash - path;
+        strncpy(parent_path, path, len); parent_path[len] = '\0';
+        strcpy(filename, last_slash + 1);
+    }
+
+    // 2. 找到父目录 Inode
+    uint32_t parent_inode_num = (strcmp(parent_path, ".") == 0) ? current_cwd_inode : lookup_path(parent_path);
+    if (parent_inode_num == 0) return -1; // 父目录不存在
+
+    inode_t parent_inode;
+    get_inode(parent_inode_num, &parent_inode);
+
+    // 3. 检查是否重名
+    // (这里复用 find_entry，如果已经存在同名文件，标准 touch 是更新时间，这里简化为报错或不做任何事)
+    if (find_entry(&parent_inode, filename) != 0) {
+        // printf("File already exists.\n");
+        return -1; 
+    }
+
+    // 4. 分配新 Inode
+    uint32_t new_inode_num = alloc_inode();
+    if (new_inode_num == 0) return -1; // Inode 耗尽
+
+    // 5. 初始化新文件的 Inode
+    inode_t new_inode;
+    new_inode.file_mode = IM_REG;  // 标记为普通文件 (Regular File)
+    new_inode.file_size = 0;       // 初始大小为 0
+    new_inode.link_count = 1;      // 只有父目录里的文件名指向它
+    
+    // 作为一个空文件，它不需要分配任何数据块，指针全设为 0
+    memset(new_inode.direct_blocks, 0, sizeof(new_inode.direct_blocks));
+    new_inode.single_indirect = 0;
+    new_inode.double_indirect = 0;
+
+    // 写回新 Inode
+    sync_inode(new_inode_num, &new_inode);
+
+    // 6. 在父目录中添加目录项
+    // (使用 do_mkdir 中实现的 add_entry_to_parent)
+    if (add_entry_to_parent(&parent_inode, new_inode_num, filename) < 0) {
+        // 如果目录满了无法添加，应该回滚 free_inode(new_inode_num)
+        return -1;
+    }
+
+    // 注意：父目录的 link_count 不需要增加（只有子目录会导致父目录引用增加）
+    // 但父目录的 modify_time 应该更新（如果你的 inode 有时间字段）
+
+    return 0; // do_touch succeeds
+}
+
+int do_cat(char *path)
+{
+    // 1. 查找文件 Inode
+    uint32_t inode_num = lookup_path(path);
+    if (inode_num == 0) {
+        // printf("cat: %s: No such file or directory\n", path);
+        return -1;
+    }
+
+    // 2. 读取 Inode
+    inode_t inode;
+    get_inode(inode_num, &inode);
+
+    // 3. 校验类型
+    if (inode.file_mode == IM_DIR) {
+        // printf("cat: %s: Is a directory\n", path);
+        return -1;
+    }
+
+    // 4. 准备缓冲区
+    static uint8_t buffer[FS_BLOCK_SIZE];
+    uint32_t bytes_printed = 0;
+    uint32_t total_size = inode.file_size;
+
+    // 5. 遍历数据块并打印
+    // (这里仅演示直接块，如果支持大文件需处理 indirect blocks)
+    for (int i = 0; i < 12; i++) {
+        // 如果已经打印完了所有字节，退出
+        if (bytes_printed >= total_size) break;
+
+        uint32_t block_id = inode.direct_blocks[i];
+        
+        // 文件可能有空洞（Sparse File），或者异常结束
+        if (block_id == 0) break;
+
+        // 读取该块
+        fs_read_block(block_id, buffer);
+
+        // 计算当前块需要打印多少字节
+        // 剩余字节数
+        uint32_t bytes_left = total_size - bytes_printed;
+        // 本次打印长度 = min(剩余字节, 块大小)
+        uint32_t chunk_size = (bytes_left < FS_BLOCK_SIZE) ? bytes_left : FS_BLOCK_SIZE;
+
+        // 逐字节打印 (最安全的方式)
+        for (uint32_t j = 0; j < chunk_size; j++) {
+            printk("%c", buffer[j]);
+        }
+        
+        // 或者使用 fwrite (如果有标准库支持)
+        // fwrite(buffer, 1, chunk_size, stdout);
+
+        bytes_printed += chunk_size;
+    }
+
+    // 打印末尾换行（可选，模拟 shell 行为）
+    printk("\n");
+
+    return 0; // do_cat succeeds
 }
 
 int do_open(char *path, int mode)
@@ -740,8 +864,6 @@ uint32_t alloc_inode()
     uint32_t total_inodes = current_superblock.total_inodes;
     
     // 2. 遍历 Inode Bitmap
-    // 注意：如果总 Inode 数很多，位图可能占多个块。这里为了通用性，支持跨块扫描。
-    // 但是在 P6 实验中，Inode 数较少，一个块(32768个位)足够，外层循环只执行一次。
     
     // 计算位图占多少个块
     uint32_t bitmap_blocks = (total_inodes + BITS_PER_BLOCK - 1) / BITS_PER_BLOCK;
@@ -782,7 +904,7 @@ uint32_t alloc_inode()
         }
     }
 
-    return 0; // 理论上应该在开头就被 free_inode_count 拦截，走到这里说明数据不一致
+    return 0; // 分配失败
 }
 uint32_t alloc_block() 
 {
@@ -793,13 +915,8 @@ uint32_t alloc_block()
 
     static uint8_t buf[FS_BLOCK_SIZE];
     // 数据区能够容纳的总块数 = 总块数 - 数据区起始位置
-    // 或者直接使用 block bitmap 能管理的上限
     uint32_t max_data_blocks = current_superblock.total_blocks - current_superblock.data_start_block;
-
-    // 假设 Block Bitmap 只有一个块 (能管理 32768 * 4KB = 128MB 数据)
-    // 如果你的磁盘很大，这里同样需要 for 循环遍历 bitmap blocks，逻辑同上。
-    // 这里展示处理多块位图的逻辑：
-    
+ 
     uint32_t bitmap_blocks = (max_data_blocks + BITS_PER_BLOCK - 1) / BITS_PER_BLOCK;
 
     for (uint32_t b = 0; b < bitmap_blocks; b++) {

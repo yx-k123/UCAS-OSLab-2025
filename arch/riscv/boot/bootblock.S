@@ -40,7 +40,7 @@ main:
 	// TODO: [p1-task2] call BIOS to read kernel in SD card
 	la a0, kernel            # 目标内存地址
 	la t1, os_size_loc
-	lh a1, 0(t1)             # 读取OS大小（字节数）
+	lhu a1, 0(t1)             # 读取OS大小（字节数）
 
 	# 将字节数转换为扇区数
 	li t2, 512               # 每扇区字节数（SECTOR_SIZE）
