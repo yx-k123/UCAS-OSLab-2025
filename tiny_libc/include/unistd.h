@@ -68,7 +68,7 @@ int sys_net_recv_stream(void *buffer, int *nbytes);
 
 /* file system operations */
 int sys_mkfs(void);
-int sys_statfs(void);
+int sys_statfs();
 int sys_cd(char *path);
 int sys_mkdir(char *path);
 int sys_rmdir(char *path);

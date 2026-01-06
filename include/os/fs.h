@@ -12,6 +12,8 @@
 #define FS_BLOCK_SIZE 4096
 #define DISK_SECTOR_SIZE 512
 #define SECTORS_PER_BLOCK (FS_BLOCK_SIZE / DISK_SECTOR_SIZE)
+#define DENTRIES_PER_BLOCK (FS_BLOCK_SIZE / sizeof(dentry_t))
+#define INODES_PER_BLOCK (FS_BLOCK_SIZE / sizeof(inode_t))
 #define MAX_FILE_NAME 24
 #define MAX_DATA_BLOCKS 12
 #define FS_SIZE (1024 * 1024 * 1024) // 1 GB
@@ -57,13 +59,12 @@ typedef struct dentry {
 
 typedef struct inode { 
     // TODO [P6-task1]: Implement the data structure of inode
-    uint16_t file_mode;    // 文件类型（文件/目录/链接）及权限（rwx）
-    uint32_t file_size;    // 文件大小（字节数）
-    uint16_t link_count;   // 硬链接计数（有多少个文件名指向这个 Inode）
-
-    uint32_t direct_blocks[12];   // 直接指针：直接指向存数据的块号
-    uint32_t single_indirect;     // 一级间接指针
-    uint32_t double_indirect;     // 二级间接指针
+    uint32_t file_size;         // 文件大小（字节数）
+    uint32_t direct_blocks[12]; // 直接指针：直接指向存数据的块号
+    uint32_t single_indirect;   // 一级间接指针
+    uint32_t double_indirect;   // 二级间接指针
+    uint16_t file_mode;         // 文件类型及权限
+    uint16_t link_count;        // 硬链接计数
     // uint32_t triple_indirect;  // 三级间接指针
 } inode_t;
 
@@ -98,4 +99,7 @@ extern int do_lseek(int fd, int offset, int whence);
 
 extern void fs_write_block(uint32_t block_num, const void *buf);
 extern void fs_read_block(uint32_t block_num, void *buf);
+extern int get_inode(uint32_t inode_num, inode_t *target);
+extern uint32_t find_entry(inode_t *dir_inode, char *name);
+extern uint32_t lookup_path(char *path);
 #endif

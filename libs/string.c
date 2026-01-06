@@ -93,3 +93,59 @@ char *strcat(char *dest, const char *src)
 
     return tmp;
 }
+
+char *strtok(char *str, const char *delim) {
+    static char *next; // 保存上一次调用的上下文
+    if (str != NULL) {
+        next = str; // 如果传入了新的字符串，初始化 next
+    }
+    if (next == NULL) {
+        return NULL; // 如果没有更多的字符串可分割，返回 NULL
+    }
+
+    // 跳过前导的分隔符
+    char *start = next;
+    while (*start != '\0') {
+        int is_delim = 0;
+        for (int i = 0; delim[i] != '\0'; i++) {
+            if (*start == delim[i]) {
+                is_delim = 1;
+                break;
+            }
+        }
+        if (!is_delim) {
+            break; // 找到第一个非分隔符字符
+        }
+        start++;
+    }
+
+    if (*start == '\0') {
+        next = NULL; // 如果到达字符串末尾，返回 NULL
+        return NULL;
+    }
+
+    // 找到下一个分隔符
+    char *end = start;
+    while (*end != '\0') {
+        int is_delim = 0;
+        for (int i = 0; delim[i] != '\0'; i++) {
+            if (*end == delim[i]) {
+                is_delim = 1;
+                break;
+            }
+        }
+        if (is_delim) {
+            break; // 找到分隔符
+        }
+        end++;
+    }
+
+    if (*end == '\0') {
+        next = NULL; // 如果到达字符串末尾，更新 next 为 NULL
+    } else {
+        *end = '\0'; // 将分隔符替换为 '\0'，分割字符串
+        next = end + 1; // 更新 next 为下一个子字符串的起点
+    }
+
+    return start; // 返回当前子字符串
+}

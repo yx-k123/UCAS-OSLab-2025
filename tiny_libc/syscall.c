@@ -280,7 +280,7 @@ int sys_mkfs(void)
     return invoke_syscall(SYSCALL_FS_MKFS, IGNORE, IGNORE, IGNORE, IGNORE, IGNORE);
 }
 
-int sys_statfs(void)
+int sys_statfs()
 {
     // TODO [P6-task1]: Implement sys_statfs
     return invoke_syscall(SYSCALL_FS_STATFS, IGNORE, IGNORE, IGNORE, IGNORE, IGNORE);

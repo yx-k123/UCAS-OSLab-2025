@@ -159,8 +159,8 @@ int main(void)
             }
         } else if (strcmp(argv[0], "mkfs") == 0) {
             sys_mkfs();
-        // } else if (strcmp(argv[0], "statfs") == 0) {
-        //     sys_statfs();
+        } else if (strcmp(argv[0], "statfs") == 0) {
+            sys_statfs();
         // } else if (strcmp(argv[0], "cd") == 0) {
         //     if (argc < 2) {
         //         printf("Usage: cd [path]\n");
@@ -179,12 +179,19 @@ int main(void)
         //     } else {
         //         sys_rmdir(argv[1]);
         //     }
-        // } else if (strcmp(argv[0], "ls") == 0) {
-        //     int option = 0;
-        //     if (argc >= 2 && strcmp(argv[1], "-l") == 0) {
-        //         option = 1;
-        //     }
-        //     sys_ls(".", option);
+        } else if (strcmp(argv[0], "ls") == 0) {
+            int option = 0;
+            char path[64] = ".";
+            if (argc >= 2) {
+                if (strcmp(argv[1], "-l") == 0) {
+                    option = 1;
+                    if (argc >= 3) {
+                        strncpy(path, argv[2], 63);
+                        path[63] = '\0';
+                    }
+                }
+            }
+            sys_ls(path, option);
         } else {
             printf("Unknown command: %s\n", argv[0]);
         }
