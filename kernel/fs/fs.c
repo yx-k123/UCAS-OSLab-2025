@@ -4,6 +4,13 @@
 
 superblock_t current_superblock;
 uint32_t current_cwd_inode;
+static fdesc_t file_descriptor_table[NUM_FDESCS];
+
+void init_fs(){
+    for (int i = 0; i < NUM_FDESCS; i++) {
+        file_descriptor_table[i].valid = 0;
+    }
+}
 
 int do_mkfs(void)
 {
@@ -102,6 +109,8 @@ int do_mkfs(void)
     current_superblock = sb; 
     printk("[FS]: Filesystem initialized successfully!\n");
     current_cwd_inode = sb.root_inode;
+
+    init_fs();
 
     return 0;  // do_mkfs succeeds
 }
@@ -593,32 +602,173 @@ int do_cat(char *path)
     return 0; // do_cat succeeds
 }
 
-int do_open(char *path, int mode)
+int do_open(char *name, int access)
 {
-    // TODO [P6-task2]: Implement do_open
+    // 1. 寻找空闲的文件描述符
+    int fd = -1;
+    for (int i = 0; i < NUM_FDESCS; i++) {
+        if (file_descriptor_table[i].valid == 0) {
+            fd = i;
+            break;
+        }
+    }
+    if (fd == -1) return -1; // 打开文件太多，表满了
 
-    return 0;  // return the id of file descriptor
+    // 2. 解析路径找到 Inode
+    uint32_t inode_num = lookup_path(name);
+    if (inode_num == 0) return -1; // 文件不存在
+
+    // 3. 填充 FD 表
+    file_descriptor_table[fd].inode_id = inode_num;
+    file_descriptor_table[fd].offset = 0; // 默认指向文件开头
+    file_descriptor_table[fd].access = access;
+    file_descriptor_table[fd].valid = 1;
+
+    return fd; // 返回下标
 }
 
-int do_read(int fd, char *buff, int length)
+int do_read(int fd, char *buff, int size)
 {
-    // TODO [P6-task2]: Implement do_read
+    // 1. 校验 FD
+    if (fd < 0 || fd >= NUM_FDESCS || !file_descriptor_table[fd].valid) return -1;
+    
+    fdesc_t *desc = &file_descriptor_table[fd];
+    
+    // 2. 读取 Inode 获取文件大小和数据块索引
+    inode_t inode;
+    get_inode(desc->inode_id, &inode);
 
-    return 0;  // return the length of trully read data
+    // 3. 调整读取大小，防止越界
+    uint32_t current_pos = desc->offset;
+    uint32_t file_size = inode.file_size;
+    
+    if (current_pos >= file_size) return 0; // 已经读到末尾了
+    if (current_pos + size > file_size) {
+        size = file_size - current_pos; // 只能读剩下的部分
+    }
+
+    int bytes_read = 0;
+    uint8_t block_buf[FS_BLOCK_SIZE];
+
+    // 4. 循环读取
+    while (bytes_read < size) {
+        // --- 核心计算 ---
+        uint32_t logical_block_idx = current_pos / FS_BLOCK_SIZE; // 当前是文件的第几个块
+        uint32_t offset_in_block = current_pos % FS_BLOCK_SIZE;   // 在该块内的偏移
+        // 本次能读多少？ min(剩余需读, 该块剩余空间)
+        uint32_t bytes_to_copy = size - bytes_read;
+        if (bytes_to_copy > (FS_BLOCK_SIZE - offset_in_block)) {
+            bytes_to_copy = FS_BLOCK_SIZE - offset_in_block;
+        }
+
+        // --- 获取物理块号 ---
+        // (这里简化只处理 Direct Blocks，如果文件大需处理 Indirect)
+        if (logical_block_idx >= 12) break; // 不支持超大文件
+        uint32_t phys_block_id = inode.direct_blocks[logical_block_idx];
+
+        if (phys_block_id == 0) {
+            // 稀疏文件（中间有空洞），读出 0
+            memset(buff + bytes_read, 0, bytes_to_copy);
+        } else {
+            // 读物理块
+            fs_read_block(phys_block_id, block_buf);
+            // 拷贝数据到用户 buffer
+            memcpy((void *)buff + bytes_read, block_buf + offset_in_block, bytes_to_copy);
+        }
+
+        // --- 更新状态 ---
+        bytes_read += bytes_to_copy;
+        current_pos += bytes_to_copy;
+    }
+
+    // 5. 更新文件描述符的 offset
+    desc->offset = current_pos;
+
+    return bytes_read;
 }
 
-int do_write(int fd, char *buff, int length)
+int do_write(int fd, char *buff, int size)
 {
-    // TODO [P6-task2]: Implement do_write
+    // 1. 校验 FD
+    if (fd < 0 || fd >= NUM_FDESCS || !file_descriptor_table[fd].valid) return -1;
+    // 检查权限 (如果是只读打开，不能写)
+    if (file_descriptor_table[fd].access == O_RDONLY) return -1;
 
-    return 0;  // return the length of trully written data
+    fdesc_t *desc = &file_descriptor_table[fd];
+    
+    // 2. 读取 Inode
+    inode_t inode;
+    get_inode(desc->inode_id, &inode);
+
+    int bytes_written = 0;
+    uint32_t current_pos = desc->offset;
+    uint8_t block_buf[FS_BLOCK_SIZE];
+
+    // 3. 循环写入
+    while (bytes_written < size) {
+        uint32_t logical_block_idx = current_pos / FS_BLOCK_SIZE;
+        uint32_t offset_in_block = current_pos % FS_BLOCK_SIZE;
+        uint32_t bytes_to_copy = size - bytes_written;
+        
+        // 限制本次写入不超过本块结尾
+        if (bytes_to_copy > (FS_BLOCK_SIZE - offset_in_block)) {
+            bytes_to_copy = FS_BLOCK_SIZE - offset_in_block;
+        }
+
+        // 限制文件最大大小 (12个直接块)
+        if (logical_block_idx >= 12) break;
+
+        // --- 获取或分配物理块 ---
+        uint32_t phys_block_id = inode.direct_blocks[logical_block_idx];
+        
+        if (phys_block_id == 0) {
+            // 该块还不存在，分配一个新块
+            phys_block_id = alloc_block();
+            if (phys_block_id == 0) return bytes_written; // 磁盘满了
+            
+            inode.direct_blocks[logical_block_idx] = phys_block_id;
+            // 新块清零（alloc_block 内部通常已清零，但为了保险）
+            memset(block_buf, 0, FS_BLOCK_SIZE);
+        } else {
+            // 块已存在，先读出来 (Read-Modify-Write)
+            // 除非我们要重写整个块，否则必须读旧数据
+            fs_read_block(phys_block_id, block_buf);
+        }
+
+        // --- 修改缓冲区 ---
+        memcpy(block_buf + offset_in_block, (void *)buff + bytes_written, bytes_to_copy);
+
+        // --- 写回磁盘 ---
+        fs_write_block(phys_block_id, block_buf);
+
+        // --- 更新状态 ---
+        bytes_written += bytes_to_copy;
+        current_pos += bytes_to_copy;
+    }
+
+    // 4. 更新 Inode (文件大小可能变了)
+    desc->offset = current_pos;
+    if (current_pos > inode.file_size) {
+        inode.file_size = current_pos;
+    }
+    
+    // 写回 Inode
+    sync_inode(desc->inode_id, &inode);
+
+    return bytes_written;
 }
 
 int do_close(int fd)
 {
-    // TODO [P6-task2]: Implement do_close
+    if (fd < 0 || fd >= NUM_FDESCS) return -1; // Invalid fd
+    if (file_descriptor_table[fd].valid == 0) return -1; // Already closed
+    
+    // 简单地标记为无效
+    file_descriptor_table[fd].valid = 0;
+    file_descriptor_table[fd].inode_id = 0;
+    file_descriptor_table[fd].offset = 0;
 
-    return 0;  // do_close succeeds
+    return 0; // do_close succeeds
 }
 
 int do_ln(char *src_path, char *dst_path)
@@ -637,9 +787,34 @@ int do_rm(char *path)
 
 int do_lseek(int fd, int offset, int whence)
 {
-    // TODO [P6-task2]: Implement do_lseek
+    // 1. 校验 FD
+    if (fd < 0 || fd >= NUM_FDESCS || !file_descriptor_table[fd].valid) return -1;
+    
+    fdesc_t *desc = &file_descriptor_table[fd];
+    inode_t inode;
+    get_inode(desc->inode_id, &inode);
+    
+    int32_t new_offset = desc->offset;
 
-    return 0;  // the resulting offset location from the beginning of the file
+    switch (whence) {
+    case SEEK_SET:
+        new_offset = offset;
+        break;
+    case SEEK_CUR:
+        new_offset += offset;
+        break;
+    case SEEK_END:
+        new_offset = inode.file_size + offset;
+        break;
+    default:
+        return -1;
+    }
+
+    if (new_offset < 0) return -1;
+    
+    desc->offset = new_offset;
+
+    return new_offset;
 }
 
 void fs_read_block(uint32_t block_num, void *buf)

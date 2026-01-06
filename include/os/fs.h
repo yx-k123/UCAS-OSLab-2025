@@ -72,6 +72,10 @@ typedef struct inode {
 
 typedef struct fdesc {
     // TODO [P6-task2]: Implement the data structure of file descriptor
+    uint32_t inode_id;   // 打开的是哪个文件的 Inode
+    uint32_t offset;     // 当前读写偏移量
+    int      access;     // 打开模式
+    int      valid;      // 该槽位是否被占用
 } fdesc_t;
 
 /* modes of do_open */
