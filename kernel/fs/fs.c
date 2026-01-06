@@ -165,7 +165,26 @@ int do_statfs(void)
 
 int do_cd(char *path)
 {
-    // TODO [P6-task1]: Implement do_cd
+    // 1. 解析路径，找到目标 Inode
+    uint32_t target_inode_num = lookup_path(path);
+
+    if (target_inode_num == 0) {
+        // printf("cd: no such file or directory: %s\n", path);
+        return -1;
+    }
+
+    // 2. 读取 Inode 校验类型
+    inode_t target_inode;
+    get_inode(target_inode_num, &target_inode);
+
+    if (target_inode.file_mode != IM_DIR) {
+        // printf("cd: not a directory: %s\n", path);
+        return -1;
+    }
+
+    // 3. 切换状态 (核心步骤)
+    // 只需要修改内存中的全局变量即可
+    current_cwd_inode = target_inode_num;
 
     return 0;  // do_cd succeeds
 }
@@ -271,9 +290,91 @@ int do_mkdir(char *path)
 
 int do_rmdir(char *path)
 {
-    // TODO [P6-task1]: Implement do_rmdir
+    // 1. 路径解析：分离父目录和目标目录名
+    // (逻辑同 mkdir，略去字符串处理细节，假设得到了 parent_path 和 dirname)
+    char parent_path[256];
+    char dirname[64];
+    // ... Copy parsing logic from mkdir ...
+    char *last_slash = strrchr(path, '/');
+    if (last_slash == NULL) {
+        strcpy(parent_path, "."); strcpy(dirname, path);
+    } else if (last_slash == path) {
+        strcpy(parent_path, "/"); strcpy(dirname, path + 1);
+    } else {
+        int len = last_slash - path;
+        strncpy(parent_path, path, len); parent_path[len] = '\0';
+        strcpy(dirname, last_slash + 1);
+    }
 
-    return 0;  // do_rmdir succeeds
+    // 2. 找到父目录 Inode
+    uint32_t parent_inode_num = (strcmp(parent_path, ".") == 0) ? current_cwd_inode : lookup_path(parent_path);
+    if (parent_inode_num == 0) return -1;
+    
+    inode_t parent_inode;
+    get_inode(parent_inode_num, &parent_inode);
+
+    // 3. 在父目录中查找目标目录
+    // 这里我们需要知道它在父目录哪个块、哪个位置，以便稍后删除
+    // 为了简化，我们先用 find_entry 拿到 Inode 号
+    uint32_t target_inode_num = find_entry(&parent_inode, dirname);
+    if (target_inode_num == 0) return -1; // 目录不存在
+
+    // 4. 读取目标 Inode 进行校验
+    inode_t target_inode;
+    get_inode(target_inode_num, &target_inode);
+
+    // 校验 A: 必须是目录
+    if (target_inode.file_mode != IM_DIR) return -1;
+    
+    // 校验 B: 不能删除根目录 (根目录 inode 通常是 1)
+    if (target_inode_num == current_superblock.root_inode) return -1;
+
+    // 校验 C: 必须是空目录
+    if (!is_dir_empty(&target_inode)) return -1;
+
+    // 5. 开始删除：回收资源
+    // 5.1 回收目标目录占用的数据块
+    for (int i = 0; i < 12; i++) {
+        if (target_inode.direct_blocks[i] != 0) {
+            free_block(target_inode.direct_blocks[i]);
+            target_inode.direct_blocks[i] = 0;
+        }
+    }
+    // 5.2 回收目标 Inode
+    free_inode(target_inode_num);
+
+    // 6. 更新父目录
+    // 6.1 从父目录的数据块中清除该 dentry
+    static uint8_t buf[FS_BLOCK_SIZE];
+    int found = 0;
+    for (int i = 0; i < 12; i++) {
+        if (parent_inode.direct_blocks[i] == 0) break;
+        
+        fs_read_block(parent_inode.direct_blocks[i], buf);
+        dentry_t *dentries = (dentry_t *)buf;
+        
+        for (int j = 0; j < DENTRIES_PER_BLOCK; j++) {
+            if (dentries[j].inode_number == target_inode_num &&
+                strcmp(dentries[j].file_name, dirname) == 0) {
+                // 清除条目
+                dentries[j].inode_number = 0; 
+                memset(dentries[j].file_name, 0, MAX_FILE_NAME);
+                fs_write_block(parent_inode.direct_blocks[i], buf);
+                found = 1;
+                break;
+            }
+        }
+        if (found) break;
+    }
+
+    // 6.2 更新父目录 Inode 元数据
+    // 目标目录被删了，它里面的 ".." 也没了，所以父目录链接数 -1
+    if (parent_inode.link_count > 0) {
+        parent_inode.link_count--;
+    }
+    sync_inode(parent_inode_num, &parent_inode);
+
+    return 0;
 }
 
 int do_ls(char *path, int option)
@@ -427,7 +528,7 @@ void fs_read_block(uint32_t block_num, void *buf)
     // mem_address: 强转为 unsigned
     // num_of_blocks: 这里指底层的块数，即8个扇区
     // block_id: 起始扇区号
-    sd_read((unsigned)buf, SECTORS_PER_BLOCK, start_sector_id);
+    sd_read(kva2pa((uintptr_t)buf), SECTORS_PER_BLOCK, start_sector_id);
 }
 
 /* 
@@ -439,7 +540,7 @@ void fs_write_block(uint32_t block_num, const void *buf)
     unsigned start_sector_id = FS_START_SEC + (block_num * SECTORS_PER_BLOCK);
 
     // 2. 调用底层驱动
-    sd_write((unsigned)buf, SECTORS_PER_BLOCK, start_sector_id);
+    sd_write(kva2pa((uintptr_t)buf), SECTORS_PER_BLOCK, start_sector_id);
 }
 
 // 返回 0 成功，-1 失败
@@ -736,4 +837,67 @@ uint32_t alloc_block()
     }
 
     return 0;
+}
+
+// 辅助：判断目录是否为空 (除了 . 和 .. 是否还有其他项)
+// 返回 1 (空)，0 (不空)
+int is_dir_empty(inode_t *dir_inode) {
+    static uint8_t buffer[FS_BLOCK_SIZE];
+    
+    for (int i = 0; i < 12; i++) {
+        uint32_t block_id = dir_inode->direct_blocks[i];
+        if (block_id == 0) break;
+
+        fs_read_block(block_id, buffer);
+        dentry_t *dentries = (dentry_t *)buffer;
+
+        for (int j = 0; j < DENTRIES_PER_BLOCK; j++) {
+            if (dentries[j].inode_number != 0) {
+                // 如果发现有效项，且名字不是 . 也不是 ..，说明不为空
+                if (strcmp(dentries[j].file_name, ".") != 0 && 
+                    strcmp(dentries[j].file_name, "..") != 0) {
+                    return 0; 
+                }
+            }
+        }
+    }
+    return 1;
+}
+
+// 辅助：释放 Inode (位图置0)
+void free_inode(uint32_t inode_num) {
+    static uint8_t buf[FS_BLOCK_SIZE];
+    // 定位位图块
+    // (简化逻辑：假设位图只占1块，更复杂的逻辑参考 alloc_inode)
+    fs_read_block(current_superblock.inode_bitmap_start, buf);
+    
+    // 清除位 (inode_num - 1)
+    uint32_t idx = inode_num - 1;
+    uint32_t byte_off = idx / 8;
+    uint32_t bit_off = idx % 8;
+    buf[byte_off] &= ~(1 << bit_off);
+    
+    fs_write_block(current_superblock.inode_bitmap_start, buf);
+
+    // 更新 Superblock
+    current_superblock.free_inode_count++;
+    // write_superblock...
+}
+
+// 辅助：释放 Block (位图置0)
+void free_block(uint32_t block_id) {
+    uint8_t buf[FS_BLOCK_SIZE];
+    // 物理块号 -> 位图索引
+    uint32_t bitmap_idx = block_id - current_superblock.data_start_block;
+    
+    fs_read_block(current_superblock.block_bitmap_start, buf);
+    
+    uint32_t byte_off = bitmap_idx / 8;
+    uint32_t bit_off = bitmap_idx % 8;
+    buf[byte_off] &= ~(1 << bit_off);
+    
+    fs_write_block(current_superblock.block_bitmap_start, buf);
+
+    current_superblock.free_block_count++;
+    // write_superblock...
 }

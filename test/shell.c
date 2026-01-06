@@ -161,24 +161,24 @@ int main(void)
             sys_mkfs();
         } else if (strcmp(argv[0], "statfs") == 0) {
             sys_statfs();
-        // } else if (strcmp(argv[0], "cd") == 0) {
-        //     if (argc < 2) {
-        //         printf("Usage: cd [path]\n");
-        //     } else {
-        //         sys_cd(argv[1]);
-        //     }
+        } else if (strcmp(argv[0], "cd") == 0) {
+            if (argc < 2) {
+                printf("Usage: cd [path]\n");
+            } else {
+                sys_cd(argv[1]);
+            }
         } else if (strcmp(argv[0], "mkdir") == 0) {
             if (argc < 2) {
                 printf("Usage: mkdir [path]\n");
             } else {
                 sys_mkdir(argv[1]);
             }
-        // } else if (strcmp(argv[0], "rmdir") == 0) {
-        //     if (argc < 2) {
-        //         printf("Usage: rmdir [path]\n");
-        //     } else {
-        //         sys_rmdir(argv[1]);
-        //     }
+        } else if (strcmp(argv[0], "rmdir") == 0) {
+            if (argc < 2) {
+                printf("Usage: rmdir [path]\n");
+            } else {
+                sys_rmdir(argv[1]);
+            }
         } else if (strcmp(argv[0], "ls") == 0) {
             int option = 0;
             char path[64] = ".";

@@ -108,4 +108,7 @@ extern uint32_t alloc_inode();
 extern uint32_t alloc_block();
 extern void sync_inode(uint32_t inode_num, inode_t *target);
 extern int add_entry_to_parent(inode_t *parent_inode, uint32_t inode_num, char *name);
+extern int is_dir_empty(inode_t *dir_inode);
+extern void free_inode(uint32_t inode_num);
+extern void free_block(uint32_t block_id);
 #endif
