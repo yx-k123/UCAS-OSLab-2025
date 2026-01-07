@@ -771,6 +771,9 @@ int do_write(int fd, char *buff, int size)
     inode_t inode;
     get_inode(desc->inode_id, &inode);
 
+    // 禁止对目录进行写操作
+    if (inode.file_mode == IM_DIR) return -1;
+
     int bytes_written = 0;
     uint32_t current_pos = desc->offset;
     uint8_t block_buf[FS_BLOCK_SIZE];

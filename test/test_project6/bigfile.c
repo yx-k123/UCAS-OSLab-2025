@@ -6,7 +6,6 @@ static char buff[64];
 
 int main(void)
 {
-    sys_touch("2.txt");
     int fd = sys_open("2.txt", O_RDWR);
 
     // 1. Write to the beginning
