@@ -118,4 +118,5 @@ extern int is_dir_empty(inode_t *dir_inode);
 extern void free_inode(uint32_t inode_num);
 extern void free_block(uint32_t block_id);
 extern uint32_t remove_entry_from_parent(inode_t *parent_inode, char *name);
+extern uint32_t get_block_addr(inode_t *inode, uint32_t logical_block, int allocate, int *is_new);
 #endif
