@@ -376,6 +376,19 @@ int main(void)
 
     unlock_kernel();
 
+    // Check file system
+    extern int check_and_restore_fs(void);
+    extern int do_mkfs(void);
+    
+    if (curr_cpu_id == 0) {
+        if (check_and_restore_fs() == 0) {
+            // FS exists
+        } else {
+            printk("[FS]: Automaticaly formatting filesystem...\n");
+            do_mkfs();
+        }
+    }
+
     if (get_current_cpu_id() == 0) {
         do_exec("shell", 0, NULL);
     }

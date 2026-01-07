@@ -22,6 +22,35 @@ void init_cache() {
     }
 }
 
+int check_and_restore_fs(void) {
+    // 1. 读取 Superblock 所在的第0块
+    static uint8_t buf[FS_BLOCK_SIZE];
+    
+    sd_read(pa2kva((uintptr_t)buf), SECTORS_PER_BLOCK, FS_START_SEC);
+    
+    superblock_t *sb = (superblock_t *)buf;
+
+    // 2. 检查 Magic Number
+    if (sb->magic_number == SUPERBLOCK_MAGIC) {
+        printk("[FS]: Found valid filesystem. Loading superblock...\n");
+        // 恢复 superblock 到全局变量
+        current_superblock = *sb;
+        
+        // 恢复 CWD 为根目录
+        current_cwd_inode = current_superblock.root_inode;
+        
+        // 重新初始化内存中的结构 (如 cache, fds)
+        init_cache();
+        init_fs();
+        
+        printk("[FS]: Filesystem checked ok.\n");
+        return 0; // 已存在且有效
+    } else {
+        printk("[FS]: No valid filesystem found (Magic: 0x%X). \n", sb->magic_number);
+        return -1; // 不存在或损坏，需要 mkfs
+    }
+}
+
 int do_mkfs(void)
 {   
     // TODO [P6-task1]: Implement do_mkfs 
