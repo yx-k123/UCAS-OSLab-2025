@@ -266,6 +266,7 @@ static void init_syscall(void)
     syscall[SYSCALL_FS_LN]    = (long (*)())do_ln;
     syscall[SYSCALL_FS_RM]    = (long (*)())do_rm;
     syscall[SYSCALL_FS_LSEEK]    = (long (*)())do_lseek;
+    syscall[SYSCALL_SET_CACHE_POLICY]    = (long (*)())do_set_cache_policy;
 }
 /************************************************************/
 

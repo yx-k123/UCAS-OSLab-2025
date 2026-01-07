@@ -364,4 +364,10 @@ int sys_cat(char *path)
     // TODO [P6-task1]: Implement sys_cat
     return invoke_syscall(SYSCALL_FS_CAT, (long)path, IGNORE, IGNORE, IGNORE, IGNORE);
 }
+
+void sys_set_cache_policy(int policy, int time)
+{
+    // TODO [P6-task3]: Implement sys_set_cache_policy
+    invoke_syscall(SYSCALL_SET_CACHE_POLICY, (long)policy, (long)time, IGNORE, IGNORE, IGNORE);
+}
 /************************************************************/

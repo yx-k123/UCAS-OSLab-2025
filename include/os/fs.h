@@ -88,6 +88,26 @@ typedef struct fdesc {
 #define SEEK_CUR 1
 #define SEEK_END 2
 
+/* cache */
+// 位置：/proc/sys/vm
+#define CACHE_WT 0  // Write Through
+#define CACHE_WB 1  // Write Back
+#define CACHE_CAPACITY 1024 
+
+extern int page_cache_policy; // 1: write back, 0: write through
+extern int write_back_freq;  // seconds
+extern int sync_timer;
+
+typedef struct cache_block {
+    uint32_t block_id;      // 对应磁盘上的块号 (Tag)
+    uint8_t  data[4096];    // 4KB 数据内容
+    
+    int valid;              // 是否有效
+    int dirty;              // 脏位(仅 WB 模式用)
+} cache_block_t;
+
+static cache_block_t cache_pool[CACHE_CAPACITY];
+
 /* fs function declarations */
 extern int do_mkfs(void);
 extern int do_statfs(void);
@@ -104,9 +124,10 @@ extern int do_rm(char *path);
 extern int do_lseek(int fd, int offset, int whence);
 extern int do_touch(char *path);
 extern int do_cat(char *path);
+extern void do_set_cache_policy(int policy, int time);
 
-extern void fs_write_block(uint32_t block_num, const void *buf);
-extern void fs_read_block(uint32_t block_num, void *buf);
+extern void disk_write_block(uint32_t block_num, const void *buf);
+extern void disk_read_block(uint32_t block_num, void *buf);
 extern int get_inode(uint32_t inode_num, inode_t *target);
 extern uint32_t find_entry(inode_t *dir_inode, char *name);
 extern uint32_t lookup_path(char *path);
@@ -119,4 +140,9 @@ extern void free_inode(uint32_t inode_num);
 extern void free_block(uint32_t block_id);
 extern uint32_t remove_entry_from_parent(inode_t *parent_inode, char *name);
 extern uint32_t get_block_addr(inode_t *inode, uint32_t logical_block, int allocate, int *is_new);
+extern int cache_lookup(uint32_t block_id);
+extern int cache_alloc();
+extern void fs_read_block(uint32_t block_num, void *buf);
+extern void fs_write_block(uint32_t block_num, const void *buf);
+extern void fs_sync();
 #endif

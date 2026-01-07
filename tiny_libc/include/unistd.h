@@ -82,6 +82,7 @@ int sys_rm(char *path);
 int sys_lseek(int fd, int offset, int whence);
 int sys_touch(char *path);
 int sys_cat(char *path);
+void sys_set_cache_policy(int policy, int time);
 /************************************************************/
 
 #endif

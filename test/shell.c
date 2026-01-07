@@ -216,6 +216,30 @@ int main(void)
             } else {
                 sys_rm(argv[1]);
             }
+        } else if (strcmp(argv[0], "set_cache_policy") == 0) {
+            if (argc < 2) {
+                printf("Usage: set_cache_policy [wt/wb] [time]\n");
+            } else {
+                int policy;
+                if (strcmp(argv[1], "wt") == 0) {
+                    policy = 0;
+                } else if (strcmp(argv[1], "wb") == 0) {
+                    policy = 1;
+                } else {
+                    printf("Unknown policy: %s\n", argv[1]);
+                    printf("Usage: set_cache_policy [wt/wb] [time]\n");
+                    printf("       wt: write through, wb: write back\n");
+                    policy = -1;
+                }
+                int time = 0;
+                if (argc >= 3) {
+                    time = atoi(argv[2]);
+                }
+                if (policy != -1) {
+                    sys_set_cache_policy(policy, time);
+                    printf("Cache policy set to %s with time %d seconds\n", argv[1], time);
+                }
+            }
         } else {
             printf("Unknown command: %s\n", argv[0]);
         }

@@ -5,6 +5,9 @@
 superblock_t current_superblock;
 uint32_t current_cwd_inode;
 static fdesc_t file_descriptor_table[NUM_FDESCS];
+int page_cache_policy = CACHE_WT; // Default to Write Through
+int write_back_freq = 30; // Default 30s
+int sync_timer = 0;
 
 void init_fs(){
     for (int i = 0; i < NUM_FDESCS; i++) {
@@ -12,9 +15,19 @@ void init_fs(){
     }
 }
 
+void init_cache() {
+    for (int i = 0; i < CACHE_CAPACITY; i++) {
+        cache_pool[i].valid = 0;
+        cache_pool[i].dirty = 0;
+    }
+}
+
 int do_mkfs(void)
-{
-    // TODO [P6-task1]: Implement do_mkfs
+{   
+    // TODO [P6-task1]: Implement do_mkfs 
+    init_cache();
+    init_fs();
+
     superblock_t sb;
     memset(&sb, 0, sizeof(superblock_t));
     printk("[FS]: Start initialize filesystem!\n");
@@ -109,7 +122,15 @@ int do_mkfs(void)
     printk("[FS]: Filesystem initialized successfully!\n");
     current_cwd_inode = sb.root_inode;
 
-    init_fs();
+    do_mkdir("/proc");
+    do_mkdir("/proc/sys");
+    do_touch("/proc/sys/vm");
+    char *page_cache_policy = "page_cache_policy = write back\n";
+    char *write_back_freq = "write_back_freq = 30";
+    int fd = do_open("/proc/sys/vm", O_RDWR);
+    do_write(fd, page_cache_policy, strlen(page_cache_policy));
+    do_write(fd, write_back_freq, strlen(write_back_freq));
+    do_close(fd);
 
     return 0;  // do_mkfs succeeds
 }
@@ -1027,7 +1048,7 @@ int do_lseek(int fd, int offset, int whence)
     return new_offset;
 }
 
-void fs_read_block(uint32_t block_num, void *buf)
+void disk_read_block(uint32_t block_num, void *buf)
 {
     // 1. 计算物理起始扇区号
     // 绝对扇区号 = 文件系统起始扇区 + (逻辑块号 * 8)
@@ -1043,7 +1064,7 @@ void fs_read_block(uint32_t block_num, void *buf)
 /* 
  * 将 buf 写入文件系统的第 block_num 号逻辑块
  */
-void fs_write_block(uint32_t block_num, const void *buf)
+void disk_write_block(uint32_t block_num, const void *buf)
 {
     // 1. 计算物理起始扇区号
     unsigned start_sector_id = FS_START_SEC + (block_num * SECTORS_PER_BLOCK);
@@ -1433,4 +1454,159 @@ uint32_t remove_entry_from_parent(inode_t *parent_inode, char *name) {
         }
     }
     return 0; // Not found
+}
+
+// 返回缓存池中的下标，如果没有找到返回 -1
+int cache_lookup(uint32_t block_id) {
+    for (int i = 0; i < CACHE_CAPACITY; i++) {
+        if (cache_pool[i].valid && cache_pool[i].block_id == block_id) {
+            return i; // Cache Hit
+        }
+    }
+    return -1; // Cache Miss
+}
+
+// 分配一个新的空闲缓存块 (假设永远不会满)
+int cache_alloc() {
+    for (int i = 0; i < CACHE_CAPACITY; i++) {
+        if (!cache_pool[i].valid) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+void fs_read_block(uint32_t block_num, void *buf)
+{
+    // 1. 先查缓存
+    int idx = cache_lookup(block_num);
+
+    if (idx != -1) {
+        // [Cache Hit] 命中：直接从内存拷贝到用户 buffer
+        memcpy(buf, cache_pool[idx].data, FS_BLOCK_SIZE);
+        return;
+    }
+
+    // 2. [Cache Miss] 未命中：调用底层驱动读取
+    // 先找个空闲的缓存槽位
+    int new_idx = cache_alloc();
+    
+    // 调用刚才改名的底层函数，把数据读到缓存里
+    // 注意：disk_read_block 内部会处理 kva2pa
+    disk_read_block(block_num, cache_pool[new_idx].data);
+
+    // 更新元数据
+    cache_pool[new_idx].block_id = block_num;
+    cache_pool[new_idx].valid = 1;
+    cache_pool[new_idx].dirty = 0; // 刚读上来是干净的
+
+    // 3. 将数据拷贝给用户
+    memcpy(buf, cache_pool[new_idx].data, FS_BLOCK_SIZE);
+}
+
+void fs_write_block(uint32_t block_num, const void *buf)
+{
+    // 1. 查缓存
+    int idx = cache_lookup(block_num);
+
+    // 如果没命中，分配一个新块
+    // (Write Allocate 策略：先占个坑，后面直接覆盖数据)
+    if (idx == -1) {
+        idx = cache_alloc();
+        cache_pool[idx].block_id = block_num;
+        cache_pool[idx].valid = 1;
+        // 如果是部分写，应该先 read 进来再修改。
+        // 但 fs_write_block 接口语义是覆盖整个块，所以直接覆盖即可，不需要预读。
+    }
+
+    // 2. 更新缓存内存
+    memcpy(cache_pool[idx].data, buf, FS_BLOCK_SIZE);
+
+    // 3. 根据策略处理
+    if (page_cache_policy == CACHE_WT) {
+        // [Write Through] 立即写穿到磁盘
+        disk_write_block(block_num, cache_pool[idx].data);
+        cache_pool[idx].dirty = 0;
+    } 
+    else {
+        // [Write Back] 标记为脏，稍后处理
+        cache_pool[idx].dirty = 1;
+    }
+}
+
+void fs_sync(void)
+{
+    for (int i = 0; i < CACHE_CAPACITY; i++) {
+        // 只有 有效 且 脏 的块才写回
+        if (cache_pool[i].valid && cache_pool[i].dirty) {
+            // 调用底层驱动写回磁盘
+            disk_write_block(cache_pool[i].block_id, cache_pool[i].data);
+            
+            // 清除脏标记
+            cache_pool[i].dirty = 0;
+        }
+    }
+}
+
+void format_write_back_freq(char *buffer, const char *prefix, int time) {
+    // 1. 写入前缀字符串
+    int i = 0;
+    while (prefix[i] != '\0') {
+        buffer[i] = prefix[i];
+        i++;
+    }
+
+    // 2. 将整数转换为字符串
+    int temp = time;
+    char num_buf[12]; // 假设整数不会超过 12 位
+    int j = 0;
+
+    if (temp == 0) {
+        num_buf[j++] = '0';
+    } else {
+        if (temp < 0) {
+            buffer[i++] = '-'; // 处理负号
+            temp = -temp;
+        }
+        while (temp > 0) {
+            num_buf[j++] = '0' + (temp % 10); // 提取最低位
+            temp /= 10;
+        }
+    }
+
+    // 3. 反转数字字符串
+    while (j > 0) {
+        buffer[i++] = num_buf[--j];
+    }
+
+    // 4. 添加字符串结束符
+    buffer[i] = '\0';
+}
+
+void do_set_cache_policy(int policy, int time)
+{   
+    char *policy_str;
+    int time_s;
+    if (policy == CACHE_WT) {
+        page_cache_policy = CACHE_WT;
+        policy_str = "page_cache_policy = write through\n";
+    } else {
+        page_cache_policy = CACHE_WB;
+        policy_str = "page_cache_policy = write back\n";
+    }
+
+    if (time > 0) {
+        write_back_freq = time;
+        time_s = time;
+    } else {
+        time_s = write_back_freq;
+    }
+
+    char buff[64];
+    format_write_back_freq(buff, "write_back_freq = ", time_s);
+
+    int fd = do_open("/proc/sys/vm", O_RDWR);
+    do_lseek(fd, 0, SEEK_SET);
+    do_write(fd, policy_str, strlen(policy_str));
+    do_write(fd, buff, strlen(buff));
 }

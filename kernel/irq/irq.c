@@ -13,6 +13,7 @@
 #include <plic.h>
 #include <e1000.h>
 #include <os/net.h>
+#include <os/fs.h>
 
 handler_t irq_table[IRQC_COUNT];
 handler_t exc_table[EXCC_COUNT];
@@ -43,6 +44,15 @@ void handle_irq_timer(regs_context_t *regs, uint64_t stval, uint64_t scause)
     // Note: use bios_set_timer to reset the timer and remember to reschedule
     bios_set_timer(get_ticks() + TIMER_INTERVAL);
     net_check_timeout();
+    if (page_cache_policy == CACHE_WB) {
+        sync_timer++;
+        uint64_t ticks_per_sec = get_time_base() / TIMER_INTERVAL;
+        if (sync_timer >= ticks_per_sec * write_back_freq) {
+            printk("[FS]: Auto syncing dirty pages to disk...\n");
+            fs_sync(); 
+            sync_timer = 0;
+        }
+    }
     do_scheduler();
 }
 
