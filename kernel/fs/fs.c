@@ -627,6 +627,96 @@ int do_open(char *name, int access)
     return fd; // 返回下标
 }
 
+static uint32_t get_block_addr(inode_t *inode, uint32_t logical_block, int allocate, int *is_new) {
+    if (is_new) *is_new = 0;
+    static uint8_t indirect_buf[FS_BLOCK_SIZE];
+    uint32_t *indices = (uint32_t *)indirect_buf;
+
+    // 1. Direct Blocks (0-11)
+    if (logical_block < 12) {
+        uint32_t phys = inode->direct_blocks[logical_block];
+        if (phys == 0 && allocate) {
+             phys = alloc_block();
+             if (phys == 0) return 0; 
+             inode->direct_blocks[logical_block] = phys;
+             if (is_new) *is_new = 1;
+        }
+        return phys;
+    }
+
+    // 2. Single Indirect (12 - 1035)
+    logical_block -= 12;
+    if (logical_block < 1024) {
+        uint32_t indirect_block = inode->single_indirect;
+        if (indirect_block == 0) {
+            if (!allocate) return 0;
+            indirect_block = alloc_block();
+            if (indirect_block == 0) return 0;
+            inode->single_indirect = indirect_block;
+            memset(indirect_buf, 0, FS_BLOCK_SIZE);
+            fs_write_block(indirect_block, indirect_buf);
+        } else {
+            fs_read_block(indirect_block, indirect_buf);
+        }
+        
+        uint32_t phys = indices[logical_block];
+        if (phys == 0 && allocate) {
+            phys = alloc_block();
+            if (phys == 0) return 0;
+            indices[logical_block] = phys;
+            fs_write_block(indirect_block, indirect_buf);
+            if (is_new) *is_new = 1;
+        }
+        return phys;
+    }
+
+    // 3. Double Indirect
+    logical_block -= 1024;
+    // Capacity usually 1024*1024
+    if (logical_block < 1024 * 1024) {
+        uint32_t l1_idx = logical_block / 1024;
+        uint32_t l2_idx = logical_block % 1024;
+        
+        uint32_t double_indirect_block = inode->double_indirect;
+        if (double_indirect_block == 0) {
+            if (!allocate) return 0;
+            double_indirect_block = alloc_block();
+            if (double_indirect_block == 0) return 0;
+            inode->double_indirect = double_indirect_block;
+            memset(indirect_buf, 0, FS_BLOCK_SIZE);
+            fs_write_block(double_indirect_block, indirect_buf);
+        } else {
+            fs_read_block(double_indirect_block, indirect_buf);
+        }
+        
+        uint32_t single_indirect_block = indices[l1_idx];
+        if (single_indirect_block == 0) {
+            if (!allocate) return 0;
+            single_indirect_block = alloc_block();
+            if (single_indirect_block == 0) return 0;
+            indices[l1_idx] = single_indirect_block;
+            fs_write_block(double_indirect_block, indirect_buf);
+            
+            memset(indirect_buf, 0, FS_BLOCK_SIZE);
+            fs_write_block(single_indirect_block, indirect_buf);
+        } else {
+            fs_read_block(single_indirect_block, indirect_buf);
+        }
+        
+        uint32_t phys = indices[l2_idx];
+        if (phys == 0 && allocate) {
+            phys = alloc_block();
+            if (phys == 0) return 0;
+            indices[l2_idx] = phys;
+            fs_write_block(single_indirect_block, indirect_buf);
+            if (is_new) *is_new = 1;
+        }
+        return phys;
+    }
+    
+    return 0;
+}
+
 int do_read(int fd, char *buff, int size)
 {
     // 1. 校验 FD
@@ -662,9 +752,8 @@ int do_read(int fd, char *buff, int size)
         }
 
         // --- 获取物理块号 ---
-        // (这里简化只处理 Direct Blocks，如果文件大需处理 Indirect)
-        if (logical_block_idx >= 12) break; // 不支持超大文件
-        uint32_t phys_block_id = inode.direct_blocks[logical_block_idx];
+        // 使用支持间接索引的 get_block_addr
+        uint32_t phys_block_id = get_block_addr(&inode, logical_block_idx, 0, NULL);
 
         if (phys_block_id == 0) {
             // 稀疏文件（中间有空洞），读出 0
@@ -715,19 +804,17 @@ int do_write(int fd, char *buff, int size)
             bytes_to_copy = FS_BLOCK_SIZE - offset_in_block;
         }
 
-        // 限制文件最大大小 (12个直接块)
-        if (logical_block_idx >= 12) break;
-
         // --- 获取或分配物理块 ---
-        uint32_t phys_block_id = inode.direct_blocks[logical_block_idx];
+        int is_new_block = 0;
+        uint32_t phys_block_id = get_block_addr(&inode, logical_block_idx, 1, &is_new_block);
         
         if (phys_block_id == 0) {
-            // 该块还不存在，分配一个新块
-            phys_block_id = alloc_block();
-            if (phys_block_id == 0) return bytes_written; // 磁盘满了
-            
-            inode.direct_blocks[logical_block_idx] = phys_block_id;
-            // 新块清零（alloc_block 内部通常已清零，但为了保险）
+             // 磁盘满了
+             return bytes_written;
+        }
+
+        if (is_new_block) {
+            // 新块清零
             memset(block_buf, 0, FS_BLOCK_SIZE);
         } else {
             // 块已存在，先读出来 (Read-Modify-Write)
@@ -773,16 +860,120 @@ int do_close(int fd)
 
 int do_ln(char *src_path, char *dst_path)
 {
-    // TODO [P6-task2]: Implement do_ln
+    // 1. 查找源文件 Inode
+    uint32_t src_inode_num = lookup_path(src_path);
+    if (src_inode_num == 0) return -1; // 源文件不存在
 
-    return 0;  // do_ln succeeds 
+    inode_t src_inode;
+    get_inode(src_inode_num, &src_inode);
+
+    // 2. 禁止对目录建立硬链接 (防止文件系统出现环路)
+    if (src_inode.file_mode == IM_DIR) return -1;
+
+    // 3. 解析目标路径 (分离 Parent 和 Filename)
+    char parent_path[256];
+    char filename[64];
+    char *last_slash = strrchr(dst_path, '/');
+    if (last_slash == NULL) {
+        strcpy(parent_path, "."); strcpy(filename, dst_path);
+    } else if (last_slash == dst_path) {
+        strcpy(parent_path, "/"); strcpy(filename, dst_path + 1);
+    } else {
+        int len = last_slash - dst_path;
+        strncpy(parent_path, dst_path, len); parent_path[len] = '\0';
+        strcpy(filename, last_slash + 1);
+    }
+
+    // 4. 获取目标父目录
+    uint32_t parent_inode_num = (strcmp(parent_path, ".") == 0) ? current_cwd_inode : lookup_path(parent_path);
+    if (parent_inode_num == 0) return -1;
+
+    inode_t parent_inode;
+    get_inode(parent_inode_num, &parent_inode);
+
+    // 5. 检查目标处是否有重名文件
+    if (find_entry(&parent_inode, filename) != 0) return -1; // 已存在
+
+    // 6. 在父目录添加目录项
+    // 注意：这里传入的是 src_inode_num，而不是 alloc_inode()
+    if (add_entry_to_parent(&parent_inode, src_inode_num, filename) < 0) {
+        return -1; // 目录满或其他错误
+    }
+
+    // 7. 增加源文件的链接数并写回
+    src_inode.link_count++;
+    sync_inode(src_inode_num, &src_inode);
+
+    return 0; // do_ln succeeds
 }
 
 int do_rm(char *path)
 {
-    // TODO [P6-task2]: Implement do_rm
+    // 1. 路径解析 (同上)
+    char parent_path[256];
+    char filename[64];
+    // ... Copy parsing logic ...
+    char *last_slash = strrchr(path, '/');
+    if (last_slash == NULL) {
+        strcpy(parent_path, "."); strcpy(filename, path);
+    } else if (last_slash == path) {
+        strcpy(parent_path, "/"); strcpy(filename, path + 1);
+    } else {
+        int len = last_slash - path;
+        strncpy(parent_path, path, len); parent_path[len] = '\0';
+        strcpy(filename, last_slash + 1);
+    }
 
-    return 0;  // do_rm succeeds 
+    // 2. 获取父目录
+    uint32_t parent_inode_num = (strcmp(parent_path, ".") == 0) ? current_cwd_inode : lookup_path(parent_path);
+    if (parent_inode_num == 0) return -1;
+
+    inode_t parent_inode;
+    get_inode(parent_inode_num, &parent_inode);
+
+    // 3. 检查目标类型（先查找，但不移除）
+    // 为了严谨，应该先 read inode 检查是不是 directory。
+    // 这里简化：利用 remove_entry_from_parent 的返回值
+    uint32_t target_inode_num = find_entry(&parent_inode, filename);
+    if (target_inode_num == 0) return -1;
+
+    inode_t target_inode;
+    get_inode(target_inode_num, &target_inode);
+    
+    // 如果是目录，rm 应该拒绝 (请用 rmdir)
+    if (target_inode.file_mode == IM_DIR) return -1;
+
+    // 4. 从父目录移除目录项
+    // 这一步之后，文件系统树上已经看不到这个文件了，但 Inode 还在
+    remove_entry_from_parent(&parent_inode, filename);
+
+    // 5. 处理引用计数
+    target_inode.link_count--;
+
+    if (target_inode.link_count > 0) {
+        // 情况 1: 还有其他硬链接指向它
+        // 只更新 link_count 并写回
+        sync_inode(target_inode_num, &target_inode);
+    } 
+    else {
+        // 情况 2: 最后一个链接被删除了 -> 彻底释放资源
+        
+        // a. 释放数据块
+        for (int i = 0; i < 12; i++) {
+            if (target_inode.direct_blocks[i] != 0) {
+                free_block(target_inode.direct_blocks[i]);
+                target_inode.direct_blocks[i] = 0;
+            }
+        }
+        // (如果有 indirect blocks 也要在这里递归释放)
+
+        // b. 释放 Inode 本身 (在位图中置 0)
+        free_inode(target_inode_num);
+        
+        // 既然 Inode 释放了，就不需要调用 sync_inode 了
+    }
+
+    return 0; // do_rm succeeds
 }
 
 int do_lseek(int fd, int offset, int whence)
@@ -1192,4 +1383,35 @@ void free_block(uint32_t block_id) {
 
     current_superblock.free_block_count++;
     // write_superblock...
+}
+
+// 从父目录 parent_inode 中删除名为 name 的目录项
+// 成功返回目标文件的 inode 号，失败返回 0
+uint32_t remove_entry_from_parent(inode_t *parent_inode, char *name) {
+    uint8_t buffer[FS_BLOCK_SIZE];
+    
+    for (int i = 0; i < 12; i++) {
+        uint32_t block_id = parent_inode->direct_blocks[i];
+        if (block_id == 0) break;
+
+        fs_read_block(block_id, buffer);
+        dentry_t *dentries = (dentry_t *)buffer;
+
+        for (int j = 0; j < DENTRIES_PER_BLOCK; j++) {
+            if (dentries[j].inode_number != 0 && 
+                strcmp(dentries[j].file_name, name) == 0) {
+                
+                uint32_t target_inode = dentries[j].inode_number;
+
+                // 删除
+                dentries[j].inode_number = 0; // 标记为空闲
+                memset(dentries[j].file_name, 0, MAX_FILE_NAME);
+                
+                // 写回磁盘
+                fs_write_block(block_id, buffer);
+                return target_inode;
+            }
+        }
+    }
+    return 0; // Not found
 }

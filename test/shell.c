@@ -204,6 +204,18 @@ int main(void)
             } else {
                 sys_cat(argv[1]);
             }
+        } else if (strcmp(argv[0], "ln") == 0) {
+            if (argc < 3) {
+                printf("Usage: ln [src_path] [dst_path]\n");
+            } else {
+                sys_ln(argv[1], argv[2]);
+            }
+        } else if (strcmp(argv[0], "rm") == 0) {
+            if (argc < 2) {
+                printf("Usage: rm [path]\n");
+            } else {
+                sys_rm(argv[1]);
+            }
         } else {
             printf("Unknown command: %s\n", argv[0]);
         }
