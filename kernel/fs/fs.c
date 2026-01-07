@@ -692,6 +692,12 @@ uint32_t get_block_addr(inode_t *inode, uint32_t logical_block, int allocate, in
             memset(indirect_buf, 0, FS_BLOCK_SIZE);
             fs_write_block(indirect_block, indirect_buf);
         } else {
+            // 只读取需要的索引项，避免 4KB memcpy
+            if (!allocate) {
+                uint32_t phys;
+                fs_read_block_part(indirect_block, &phys, logical_block * sizeof(uint32_t), sizeof(uint32_t));
+                return phys;
+            }
             fs_read_block(indirect_block, indirect_buf);
         }
         
@@ -774,7 +780,7 @@ int do_read(int fd, char *buff, int size)
     }
 
     int bytes_read = 0;
-    uint8_t block_buf[FS_BLOCK_SIZE];
+    // uint8_t block_buf[FS_BLOCK_SIZE]; // 不需要全块缓冲区了
 
     // 4. 循环读取
     while (bytes_read < size) {
@@ -790,12 +796,10 @@ int do_read(int fd, char *buff, int size)
         uint32_t phys_block_id = get_block_addr(&inode, logical_block_idx, 0, NULL);
 
         if (phys_block_id == 0) {
-            memset(buff + bytes_read, 0, bytes_to_copy);
+            memset((uint8_t *)buff + bytes_read, 0, bytes_to_copy);
         } else {
-            // 读物理块
-            fs_read_block(phys_block_id, block_buf);
-            // 拷贝数据到用户 buffer
-            memcpy((void *)buff + bytes_read, block_buf + offset_in_block, bytes_to_copy);
+            // 直接从 Cache 读部分数据到用户 Buffer
+            fs_read_block_part(phys_block_id, (uint8_t *)buff + bytes_read, offset_in_block, bytes_to_copy);
         }
 
         bytes_read += bytes_to_copy;
@@ -1502,35 +1506,43 @@ int cache_alloc() {
             return i;
         }
     }
-    return 0;
+    
+    // 如果满了，使用简单的随机替换策略
+    static int rand_idx = 0;
+    rand_idx = (rand_idx + 1) % CACHE_CAPACITY;
+    
+    // 如果是脏块，需要写回
+    if (cache_pool[rand_idx].valid && cache_pool[rand_idx].dirty) {
+        disk_write_block(cache_pool[rand_idx].block_id, cache_pool[rand_idx].data);
+    }
+    
+    cache_pool[rand_idx].valid = 0;
+    cache_pool[rand_idx].dirty = 0;
+    return rand_idx;
 }
 
-void fs_read_block(uint32_t block_num, void *buf)
+// 辅助函数：从缓存中读取部分数据
+void fs_read_block_part(uint32_t block_num, void *buf, uint32_t offset, uint32_t length)
 {
     // 1. 先查缓存
     int idx = cache_lookup(block_num);
 
-    if (idx != -1) {
-        // [Cache Hit] 命中：直接从内存拷贝到用户 buffer
-        memcpy(buf, cache_pool[idx].data, FS_BLOCK_SIZE);
-        return;
+    if (idx == -1) {
+        // [Cache Miss] 未命中：读取块到缓存
+        idx = cache_alloc();
+        disk_read_block(block_num, cache_pool[idx].data);
+        cache_pool[idx].block_id = block_num;
+        cache_pool[idx].valid = 1;
+        cache_pool[idx].dirty = 0;
     }
 
-    // 2. [Cache Miss] 未命中：调用底层驱动读取
-    // 先找个空闲的缓存槽位
-    int new_idx = cache_alloc();
-    
-    // 调用刚才改名的底层函数，把数据读到缓存里
-    // 注意：disk_read_block 内部会处理 kva2pa
-    disk_read_block(block_num, cache_pool[new_idx].data);
+    // 2. 拷贝所需部分
+    memcpy(buf, cache_pool[idx].data + offset, length);
+}
 
-    // 更新元数据
-    cache_pool[new_idx].block_id = block_num;
-    cache_pool[new_idx].valid = 1;
-    cache_pool[new_idx].dirty = 0; // 刚读上来是干净的
-
-    // 3. 将数据拷贝给用户
-    memcpy(buf, cache_pool[new_idx].data, FS_BLOCK_SIZE);
+void fs_read_block(uint32_t block_num, void *buf)
+{
+    fs_read_block_part(block_num, buf, 0, FS_BLOCK_SIZE);
 }
 
 void fs_write_block(uint32_t block_num, const void *buf)

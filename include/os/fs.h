@@ -145,4 +145,5 @@ extern int cache_alloc();
 extern void fs_read_block(uint32_t block_num, void *buf);
 extern void fs_write_block(uint32_t block_num, const void *buf);
 extern void fs_sync();
+extern void fs_read_block_part(uint32_t block_num, void *buf, uint32_t offset, uint32_t length);
 #endif

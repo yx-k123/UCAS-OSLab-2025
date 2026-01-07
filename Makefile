@@ -207,7 +207,7 @@ image: $(ELF_CREATEIMAGE) $(ELF_BOOT) $(ELF_MAIN) $(ELF_USER)
 
 pad-image: image
 	@([ -f $(DIR_BUILD)/.padded ] && echo "Image already padded, skip.") || ( echo "Padding $(ELF_IMAGE) by 2 * 512MB..."; \
-	dd if=/dev/zero of=$(ELF_IMAGE) oflag=append conv=notrunc bs=10MB count=2; \
+	dd if=/dev/zero of=$(ELF_IMAGE) oflag=append conv=notrunc bs=512MB count=2; \
 	touch $(DIR_BUILD)/.padded )
 
 .PHONY: image
